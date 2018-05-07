@@ -25,8 +25,9 @@ public class M2FiltersArgumentCollection extends AssemblyBasedCallerArgumentColl
     public static final String CONTAMINATION_TABLE_LONG_NAME = "contamination-table";
     public static final String MAX_CONTAMINATION_PROBABILITY_LONG_NAME = "max-contamination-probability";
     public static final String UNIQUE_ALT_READ_COUNT_LONG_NAME = "unique-alt-read-count";
-
     public static final String TUMOR_SEGMENTATION_LONG_NAME = "tumor-segmentation";
+    public static final String FALSE_POSITIVE_RATE_LONG_NAME = "fpr";
+    public static final String FILTERING_STATS_LONG_NAME = "stats";
 
     /**
      * A table containing tumor segments and the minor allele fraction of germline hets within each segment.
@@ -105,5 +106,17 @@ public class M2FiltersArgumentCollection extends AssemblyBasedCallerArgumentColl
 
     @Argument(fullName = UNIQUE_ALT_READ_COUNT_LONG_NAME, shortName = "unique", optional = true, doc = "Filter a variant if a site contains fewer than this many unique (i.e. deduplicated) reads supporting the alternate allele")
     public int uniqueAltReadCount = 0;
+
+    /**
+     * We set the filtering threshold for the read orientation filter such that the ratio
+     * expected number of false positives due to read orientation artifact) / total number of v
+     * to the total number of variants does not exceed this value
+     */
+    @Argument(fullName = FALSE_POSITIVE_RATE_LONG_NAME, optional = true, doc = "Set the read orientation filter threshold such that the expected FPR doesn't exceed this value")
+    public double maxFalsePositiveRate = 0.05;
+
+    @Argument(fullName = FILTERING_STATS_LONG_NAME, optional = true, doc = "Write the filtering statistics to this file")
+    public File mutect2FilteringStatsTable = new File("Mutect2FilteringStats.tsv");
+
 
 }

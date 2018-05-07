@@ -6,6 +6,8 @@ import org.broadinstitute.barclay.argparser.Argument;
 import org.broadinstitute.hellbender.engine.FeatureInput;
 import org.broadinstitute.hellbender.tools.walkers.haplotypecaller.AssemblyBasedCallerArgumentCollection;
 
+import java.io.File;
+
 public class M2ArgumentCollection extends AssemblyBasedCallerArgumentCollection {
     private static final long serialVersionUID = 9341L;
     public static final String TUMOR_SAMPLE_LONG_NAME = "tumor-sample";
@@ -31,6 +33,9 @@ public class M2ArgumentCollection extends AssemblyBasedCallerArgumentCollection 
     public static final String NORMAL_LOD_LONG_NAME = "normal-lod";
     public static final String MAX_MNP_DISTANCE_LONG_NAME = "max-mnp-distance";
     public static final String MAX_MNP_DISTANCE_SHORT_NAME = "mnp-dist";
+    public static final String ARTIFACT_PRIOR_TABLE_LONG_NAME = "prior-artifact-probs";
+    public static final String ARTIFACT_PRIOR_TABLE_SHORT_NAME = "prior";
+
 
 
     public static final double DEFAULT_AF_FOR_TUMOR_ONLY_CALLING = 5e-8;
@@ -134,6 +139,9 @@ public class M2ArgumentCollection extends AssemblyBasedCallerArgumentCollection 
      */
     @Argument(fullName = NORMAL_LOD_LONG_NAME, optional = true, doc = "LOD threshold for calling normal variant non-germline.")
     public double normalLod = 2.2;
+
+    @Argument(shortName = ARTIFACT_PRIOR_TABLE_SHORT_NAME, fullName = ARTIFACT_PRIOR_TABLE_LONG_NAME, optional = true, doc = "table of prior artifact probabilities for the read orientation filter model")
+    public File artifactPriorTable = null;
 
     /**
      * Two or more phased substitutions separated by this distance or less are merged into MNPs.

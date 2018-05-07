@@ -13,6 +13,7 @@ import org.broadinstitute.hellbender.utils.GATKProtectedVariantContextUtils;
 import org.broadinstitute.hellbender.utils.IndexRange;
 import org.broadinstitute.hellbender.utils.MathUtils;
 import org.broadinstitute.hellbender.utils.variant.GATKVCFConstants;
+import org.broadinstitute.hellbender.tools.walkers.readorientation.ReadOrientation;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -33,7 +34,6 @@ public class Mutect2FilteringEngine {
         contamination = MTFAC.contaminationTable == null ? 0.0 : ContaminationRecord.readFromFile(MTFAC.contaminationTable).get(0).getContamination();
         this.tumorSample = tumorSample;
         somaticPriorProb = Math.pow(10, MTFAC.log10PriorProbOfSomaticEvent);
-
         final List<MinorAlleleFractionRecord> tumorMinorAlleleFractionRecords = MTFAC.tumorSegmentationTable == null ?
                 Collections.emptyList() : MinorAlleleFractionRecord.readFromFile(MTFAC.tumorSegmentationTable);
         tumorSegments = OverlapDetector.create(tumorMinorAlleleFractionRecords);
@@ -218,9 +218,9 @@ public class Mutect2FilteringEngine {
     private void applyStrandArtifactFilter(final M2FiltersArgumentCollection MTFAC, final VariantContext vc, final VariantContextBuilder vcb) {
         Genotype tumorGenotype = vc.getGenotype(tumorSample);
         final double[] posteriorProbabilities = GATKProtectedVariantContextUtils.getAttributeAsDoubleArray(
-                tumorGenotype, (StrandArtifact.POSTERIOR_PROBABILITIES_KEY), () -> null, -1);
+                tumorGenotype, (GATKVCFConstants.POSTERIOR_PROBABILITIES_KEY), () -> null, -1);
         final double[] mapAlleleFractionEstimates = GATKProtectedVariantContextUtils.getAttributeAsDoubleArray(
-                tumorGenotype, (StrandArtifact.MAP_ALLELE_FRACTIONS_KEY), () -> null, -1);
+                tumorGenotype, (GATKVCFConstants.MAP_ALLELE_FRACTIONS_KEY), () -> null, -1);
 
         if (posteriorProbabilities == null || mapAlleleFractionEstimates == null){
             return;
@@ -261,6 +261,32 @@ public class Mutect2FilteringEngine {
         }
     }
 
+    /***
+     * This filter requires the INFO field annotation {@code REFERENCE_CONTEXT_KEY} and {@code F1R2_KEY}
+     */
+     private void applyReadOrientationFilter(final M2FiltersArgumentCollection MTFAC, final VariantContext vc, final VariantContextBuilder vcb, final double threshold){
+        final Genotype tumorGenotype = vc.getGenotype(tumorSample);
+        if (! vc.isSNP()){
+            return;
+        }
+
+        if (! tumorGenotype.hasExtendedAttribute(GATKVCFConstants.ROF_POSTERIOR_KEY) ||
+                ! tumorGenotype.hasExtendedAttribute(GATKVCFConstants.ROF_PRIOR_KEY)){
+            return;
+        }
+
+        final double artifactProbability = GATKProtectedVariantContextUtils.getAttributeAsDouble(
+                tumorGenotype, GATKVCFConstants.ROF_POSTERIOR_KEY, -1.0);
+        final ReadOrientation artifactType = ReadOrientation.valueOf(
+                GATKProtectedVariantContextUtils.getAttributeAsString(
+                        tumorGenotype, GATKVCFConstants.ROF_TYPE_KEY, null));
+
+        if (artifactProbability > threshold){
+            vcb.filter(artifactType == ReadOrientation.F1R2 ?
+                    GATKVCFConstants.F1R2_ARTIFACT_FILTER_NAME : GATKVCFConstants.F2R1_ARTIFACT_FILTER_NAME);
+        }
+    }
+
     public void applyFilters(final M2FiltersArgumentCollection MTFAC, final VariantContext vc, final VariantContextBuilder vcb) {
         vcb.filters(new HashSet<>());
         applyInsufficientEvidenceFilter(MTFAC, vc, vcb);
@@ -279,7 +305,54 @@ public class Mutect2FilteringEngine {
         applyReadPositionFilter(MTFAC, vc, vcb);
     }
 
+    public void applySecondPassFilters(final M2FiltersArgumentCollection MTFAC,
+                                       final VariantContext vc,
+                                       final VariantContextBuilder vcb,
+                                       final Mutect2FilterStats MTFS){
+         applyReadOrientationFilter(MTFAC, vc, vcb, MTFS.getThreshold());
+    }
+
     private int[] getIntArrayTumorField(final VariantContext vc, final String key) {
         return GATKProtectedVariantContextUtils.getAttributeAsIntArray(vc.getGenotype(tumorSample), key, () -> null, 0);
+    }
+
+    /**
+     *
+     * Compute the filtering threshold that ensures that the false positive rate among the resulting pass variants
+     * will not exceed the requested false positive rate
+     *
+     * @param posteriors A list of posterior probabilities
+     * @param requestedFPR We set the filtering threshold such that the FPR doesn't exceed this value
+     * @return
+     */
+    public Mutect2FilterStats calculateThresholdForReadOrientationFilter(final List<Double> posteriors, final double requestedFPR){
+        final double NO_FILTERING_THRESHOLD = 1.0;
+        final double FILTER_EVERYTHING_THRESHOLD = 0.0;
+
+        final List<Double> sortedPosteriors = new ArrayList<>(posteriors);
+        Collections.sort(sortedPosteriors);
+
+        final int numPassingVariants = sortedPosteriors.size();
+        double cumulativeExpectedFPs = 0.0;
+
+        for (int i = 0; i < numPassingVariants; i++){
+            final double posterior = sortedPosteriors.get(i);
+
+            // One can show that the cumulative error rate is monotonically increasing in i
+            final double expectedFPR = (cumulativeExpectedFPs + posterior) / (i + 1);
+            if (expectedFPR > requestedFPR){
+                return i > 0 ?
+                        new Mutect2FilterStats(GATKVCFConstants.F1R2_ARTIFACT_FILTER_NAME, sortedPosteriors.get(i-1),
+                                cumulativeExpectedFPs, i-1, cumulativeExpectedFPs/i, requestedFPR) :
+                        new Mutect2FilterStats(GATKVCFConstants.F1R2_ARTIFACT_FILTER_NAME, FILTER_EVERYTHING_THRESHOLD,
+                                0.0, 0, 0.0, requestedFPR);
+            }
+
+            cumulativeExpectedFPs += posterior;
+        }
+
+        // If the expected FP rate never exceeded the max tolerable value, then we can let everything pass
+        return new Mutect2FilterStats(GATKVCFConstants.F1R2_ARTIFACT_FILTER_NAME, NO_FILTERING_THRESHOLD,
+                cumulativeExpectedFPs, numPassingVariants, cumulativeExpectedFPs/numPassingVariants, requestedFPR);
     }
 }

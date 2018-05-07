@@ -10,17 +10,21 @@ import org.broadinstitute.barclay.argparser.ArgumentCollection;
 import org.broadinstitute.barclay.argparser.CommandLineProgramProperties;
 import org.broadinstitute.barclay.help.DocumentedFeature;
 import org.broadinstitute.hellbender.cmdline.StandardArgumentDefinitions;
+import org.broadinstitute.hellbender.engine.*;
+import org.broadinstitute.hellbender.utils.GATKProtectedVariantContextUtils;
 import picard.cmdline.programgroups.VariantFilteringProgramGroup;
 import org.broadinstitute.hellbender.engine.FeatureContext;
 import org.broadinstitute.hellbender.engine.ReadsContext;
 import org.broadinstitute.hellbender.engine.ReferenceContext;
-import org.broadinstitute.hellbender.engine.VariantWalker;
 import org.broadinstitute.hellbender.tools.exome.FilterByOrientationBias;
 import org.broadinstitute.hellbender.tools.walkers.contamination.CalculateContamination;
 import org.broadinstitute.hellbender.utils.variant.GATKVCFConstants;
 import org.broadinstitute.hellbender.utils.variant.GATKVCFHeaderLines;
 
 import java.io.File;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -67,7 +71,7 @@ import java.util.stream.Collectors;
         programGroup = VariantFilteringProgramGroup.class
 )
 @DocumentedFeature
-public final class FilterMutectCalls extends VariantWalker {
+public final class FilterMutectCalls extends TwoPassVariantWalker {
 
     @Argument(fullName= StandardArgumentDefinitions.OUTPUT_LONG_NAME,
             shortName=StandardArgumentDefinitions.OUTPUT_SHORT_NAME,
@@ -80,6 +84,10 @@ public final class FilterMutectCalls extends VariantWalker {
     private VariantContextWriter vcfWriter;
 
     private Mutect2FilteringEngine filteringEngine;
+
+    private List<Double> posteriorsOfReadArtifact;
+
+    private Mutect2FilterStats stats = null;
 
     @Override
     public void onTraversalStart() {
@@ -97,8 +105,9 @@ public final class FilterMutectCalls extends VariantWalker {
         vcfWriter = createVCFWriter(new File(outputVcf));
         vcfWriter.writeHeader(vcfHeader);
 
-        final String tumorSample = getHeaderForVariants().getMetaDataLine(Mutect2Engine.TUMOR_SAMPLE_KEY_IN_VCF_HEADER).getValue();
-        filteringEngine = new Mutect2FilteringEngine(MTFAC, tumorSample);
+        filteringEngine = new Mutect2FilteringEngine(MTFAC, getTumorSampleName());
+
+        posteriorsOfReadArtifact = new ArrayList<>();
     }
 
     @Override
@@ -107,9 +116,30 @@ public final class FilterMutectCalls extends VariantWalker {
     }
 
     @Override
-    public void apply(final VariantContext vc, final ReadsContext readsContext, final ReferenceContext refContext, final FeatureContext fc) {
+    public void firstPassApply(final VariantContext vc, final ReadsContext readsContext, final ReferenceContext refContext, final FeatureContext fc) {
         final VariantContextBuilder vcb = new VariantContextBuilder(vc);
         filteringEngine.applyFilters(MTFAC, vc, vcb);
+
+        if (vcb.make().getFilters().isEmpty()){
+            final double posterior = GATKProtectedVariantContextUtils.getAttributeAsDouble(vc.getGenotype(getTumorSampleName()), GATKVCFConstants.ROF_POSTERIOR_KEY, 0.0 );
+            posteriorsOfReadArtifact.add(posterior);
+        }
+    }
+
+    @Override
+    protected void afterFirstPass() {
+        stats = filteringEngine.calculateThresholdForReadOrientationFilter(posteriorsOfReadArtifact, MTFAC.maxFalsePositiveRate);
+        Mutect2FilterStats.writeM2FilterStats(Arrays.asList(stats), MTFAC.mutect2FilteringStatsTable);
+    }
+
+    @Override
+    public void secondPassApply(final VariantContext vc, final ReadsContext readsContext, final ReferenceContext refContext, final FeatureContext fc) {
+        final VariantContextBuilder vcb = new VariantContextBuilder(vc);
+        filteringEngine.applyFilters(MTFAC, vc, vcb);
+
+        // Apply the second pass filters
+        filteringEngine.applySecondPassFilters(MTFAC, vc, vcb, stats);
+
         vcfWriter.add(vcb.make());
     }
 
@@ -118,5 +148,9 @@ public final class FilterMutectCalls extends VariantWalker {
         if ( vcfWriter != null ) {
             vcfWriter.close();
         }
+    }
+
+    private String getTumorSampleName(){
+        return getHeaderForVariants().getMetaDataLine(Mutect2Engine.TUMOR_SAMPLE_KEY_IN_VCF_HEADER).getValue();
     }
 }

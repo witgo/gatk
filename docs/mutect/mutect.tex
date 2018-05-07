@@ -427,4 +427,19 @@ Here for convenience is a table of \code{Mutect2} filters with their correspondi
  \end{tabular}
 \end{table}
 
+%%%%%%%%%%
+\section{Read Orientation Artifact Filter}
+
+Read orientation artifact, also known as orientation bias, arises due to a chemical change to the nucleotide during library prep that results in, for example, G base pairing with A instead of C. Such a change is very base-specific and thus occurs only on one strand of the DNA. We observe such an artifact mode as alt reads at a locus being all F1R2 or all F2R1, and this signature repeating for a particular substitution (e.g. $\text{C} \rightarrow \text{A}$) under a particular reference context (ACT) across the bam.
+
+Let $z_i$ denote a 1-hot encoding of the genotype extended to include the possibility of read orientation-based artifact at locus $i$. For example, at a locus where the 3 base-pair reference context is ACT, we have
+
+$$z \in \{ \text{F1R2}_A, \text{F1R2}_G, \text{F1R2}_T, \text{F2R1}_A, \text{F2R1}_G, \text{F2R1}_T,  \text{Hom Ref}, \text{Germline Het}, \text{Somatic Het}, \text{Hom Var} \}$$
+
+$z_i$ has an associated vector of prior probabilities $\pi$.
+
+Assignment to $z_i$ dictates hyperparameters $\alpha, \beta$ for the conditional distribution over the number of alt reads, $m_i | z_i \sim \mathrm{BetaBinomial}(n, \alpha, \beta)$, where $n_i$ is the depth at site $i$. The number of F1R2 alt reads, denoted $x_i$, is also a beta-binomial distribution with parameters $\alpha'$ and $\beta'$ that depend on $z_i$, but it draws out of $m$ alt reads.
+
+We use the EM-algorithm to learn the prior probabilities $\pi$. Say more about implementation (data collection then learning step).
+
 \end{document}
