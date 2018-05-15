@@ -17,10 +17,19 @@ from . import arguments
 from . import tensor_maps
 
 
+def start_session_get_args_and_model(intra_ops, inter_ops, semantics_json, weights_hd5=None, tensor_type=None):
+    K.clear_session()
+    K.get_session().close()
+    cfg = K.tf.ConfigProto(intra_op_parallelism_threads=intra_ops, inter_op_parallelism_threads=inter_ops)
+    cfg.gpu_options.allow_growth = True
+    K.set_session(K.tf.Session(config=cfg))
+    return args_and_model_from_semantics(semantics_json, weights_hd5, tensor_type)
+
+
 def args_and_model_from_semantics(semantics_json, weights_hd5=None, tensor_type=None):
     args = arguments.parse_args()
 
-    if semantics_json is not None:
+    if semantics_json is not None and os.path.exists(semantics_json):
         model = set_args_and_get_model_from_semantics(args, semantics_json, weights_hd5)
     else:
         model = load_model(weights_hd5, custom_objects=get_metric_dict(args.labels))
@@ -210,19 +219,21 @@ def build_read_tensor_2d_and_annotations_model(args):
     return model
 
 
-def build_tiny_2d_annotation_model(args):
+def build_2d_annotation_model_from_args(args):
     return read_tensor_2d_annotation_model_from_args(args,
-                                                     conv_width = 11,
-                                                     conv_height = 5,
-                                                     conv_layers = [32, 32],
-                                                     conv_dropout = 0.0,
-                                                     spatial_dropout = False,
-                                                     max_pools = [(2,1),(8,1)],
-                                                     padding='valid',
-                                                     annotation_units = 10,
-                                                     annotation_shortcut = False,
-                                                     fc_layers = [16],
-                                                     fc_dropout = 0.0)
+                                                     conv_width = args.conv_width,
+                                                     conv_height = args.conv_height,
+                                                     conv_layers = args.conv_layers,
+                                                     conv_dropout = args.conv_dropout,
+                                                     conv_batch_normalize = args.conv_batch_normalize,
+                                                     spatial_dropout = args.spatial_dropout,
+                                                     max_pools = args.max_pools,
+                                                     padding = args.padding,
+                                                     annotation_units = args.annotation_units,
+                                                     annotation_shortcut = args.annotation_shortcut,
+                                                     fc_layers = args.fc_layers,
+                                                     fc_dropout = args.fc_dropout,
+                                                     fc_batch_normalize = args.fc_batch_normalize)
 
 
 def build_small_2d_annotation_model(args):
@@ -302,11 +313,11 @@ def read_tensor_2d_annotation_model_from_args(args,
             cur_kernel = (conv_width, conv_height)
 
         if conv_batch_normalize:
-            x = Conv2D(f, cur_kernel, activation='linear', padding=padding, kernel_initializer=kernel_initializer)(x)
+            x = Conv2D(int(f), cur_kernel, activation='linear', padding=padding, kernel_initializer=kernel_initializer)(x)
             x = BatchNormalization(axis=concat_axis)(x)
             x = Activation('relu')(x)
         else:
-            x = Conv2D(f, cur_kernel, activation='relu', padding=padding, kernel_initializer=kernel_initializer)(x)
+            x = Conv2D(int(f), cur_kernel, activation='relu', padding=padding, kernel_initializer=kernel_initializer)(x)
 
         if conv_dropout > 0 and spatial_dropout:
             x = SpatialDropout2D(conv_dropout)(x)
@@ -411,16 +422,18 @@ def train_model_from_generators(args, model, generate_train, generate_valid, sav
     '''
     if not os.path.exists(os.path.dirname(save_weight_hd5)):
         os.makedirs(os.path.dirname(save_weight_hd5))
+    serialize_model_semantics(args, save_weight_hd5)
 
     history = model.fit_generator(generate_train,
                                   steps_per_epoch=args.training_steps, epochs=args.epochs, verbose=1,
                                   validation_steps=args.validation_steps, validation_data=generate_valid,
                                   callbacks=get_callbacks(args, save_weight_hd5))
+    print('Training complete, model weights saved at: %s' % save_weight_hd5)
     if args.image_dir:
         plots.plot_metric_history(history, plots.weight_path_to_title(save_weight_hd5), prefix=args.image_dir)
 
-    serialize_model_semantics(args, save_weight_hd5)
-    print('Model weights saved at: %s' % save_weight_hd5)
+
+
 
     return model
 

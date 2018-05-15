@@ -117,7 +117,6 @@ def reference_string_to_tensor(reference):
             break
         else:
             raise ValueError('Error! Unknown code:', b)
-
     return dna_data
 
 
@@ -434,3 +433,14 @@ def _write_tensor_to_hd5(args, tensor, annotations, contig, pos, variant_type):
     with h5py.File(tensor_path, 'w') as hf:
         hf.create_dataset(args.tensor_name, data=tensor, compression='gzip')
         hf.create_dataset(args.annotation_set, data=annotations, compression='gzip')
+
+def clear_session():
+    try:
+        K.clear_session()
+        K.get_session().close()
+        cfg = K.tf.ConfigProto()
+        cfg.gpu_options.allow_growth = True
+        K.set_session(K.tf.Session(config=cfg))
+    except AttributeError as e:
+        print('Could not clear session. Maybe you are using Theano backend?')
+

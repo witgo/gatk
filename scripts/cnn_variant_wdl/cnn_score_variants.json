@@ -1,0 +1,22 @@
+{
+  "CNNScoreVariantsWorkflow.architecture_hd5": "gs://broad-dsde-methods/cnn-variant-score/architectures/small_2d_tf_model.hd5",
+  "CNNScoreVariantsWorkflow.architecture_json": "gs://broad-dsde-methods/cnn-variant-score/architectures/small_2d_tf_model.json",
+  "CNNScoreVariantsWorkflow.bam_file": "gs://broad-dsde-methods/cnn-variant-score/bams/g94982_chr20_1m_10m_bamout.bam",
+  "CNNScoreVariantsWorkflow.bam_file_index": "gs://broad-dsde-methods/cnn-variant-score/bams/g94982_chr20_1m_10m_bamout.bai",
+  "CNNScoreVariantsWorkflow.calling_intervals": "gs://broad-references/hg19/v0/wgs_calling_regions.v1.interval_list",
+  "CNNScoreVariantsWorkflow.gatk_docker": "samfriedman/p3",
+  "CNNScoreVariantsWorkflow.gatk_override": "gs://broad-dsde-methods/sam/jars/gatk.jar",
+  "CNNScoreVariantsWorkflow.input_vcf": "gs://broad-dsde-methods/cnn-variant-score/vcfs/g94982_b37_chr20_1m_10m.vcf.gz",
+  "CNNScoreVariantsWorkflow.input_vcf_index": "gs://broad-dsde-methods/cnn-variant-score/vcfs/g94982_b37_chr20_1m_10m.vcf.gz.tbi",
+  "CNNScoreVariantsWorkflow.inference_batch_size": "1",
+  "CNNScoreVariantsWorkflow.output_prefix": "g94982_b37_chr20_1m_10m",
+  "CNNScoreVariantsWorkflow.preemptible_attempts": "0",
+  "CNNScoreVariantsWorkflow.MergeVCF_CNN.preemptible_attempts": "0",
+  "CNNScoreVariantsWorkflow.picard_jar": "gs://broad-dsde-methods/skwalker/picard_2.12.1.jar",
+  "CNNScoreVariantsWorkflow.reference_fasta": "gs://broad-references/hg19/v0/Homo_sapiens_assembly19.fasta",
+  "CNNScoreVariantsWorkflow.reference_dict": "gs://broad-references/hg19/v0/Homo_sapiens_assembly19.dict",
+  "CNNScoreVariantsWorkflow.reference_fasta_index": "gs://broad-references/hg19/v0/Homo_sapiens_assembly19.fasta.fai",
+  "CNNScoreVariantsWorkflow.scatter_count": "10",
+  "CNNScoreVariantsWorkflow.transfer_batch_size": "1",
+  "CNNScoreVariantsWorkflow.tensor_type": "read_tensor"
+}
