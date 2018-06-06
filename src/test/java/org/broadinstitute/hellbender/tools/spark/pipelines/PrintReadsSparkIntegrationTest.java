@@ -242,6 +242,21 @@ public final class PrintReadsSparkIntegrationTest extends CommandLineProgramTest
         SamAssertionUtils.assertSamsEqual(outBam, inBam);
     }
 
+    @Test( groups = "spark")
+    public void testUnSorted() throws Exception {
+        final File inBam = new File(getTestDataDir(), "print_reads.unsorted.bam");
+        final File outBam = GATKBaseTest.createTempFile("print_reads", ".bam");
+        ArgumentsBuilder args = new ArgumentsBuilder();
+        args.add("--" + StandardArgumentDefinitions.INPUT_LONG_NAME);
+        args.add(inBam.getCanonicalPath());
+        args.add("--" + StandardArgumentDefinitions.OUTPUT_LONG_NAME);
+        args.add(outBam.getCanonicalPath());
+
+        this.runCommandLine(args.getArgsArray());
+
+        SamAssertionUtils.assertSamsEqual(outBam, inBam);
+    }
+
     /**
      * Test that PrintReadsSpark is correctly applying the WellformedReadFilter
      */
