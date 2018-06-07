@@ -245,6 +245,9 @@ public final class PrintReadsSparkIntegrationTest extends CommandLineProgramTest
     @Test( groups = "spark")
     public void testUnSorted() throws Exception {
         final File inBam = new File(getTestDataDir(), "print_reads.unsorted.bam");
+        try (ReadsDataSource ds = new ReadsDataSource(inBam.toPath())){
+            Assert.assertEquals(ds.getHeader().getSortOrder(), SAMFileHeader.SortOrder.unsorted);
+        }
         final File outBam = GATKBaseTest.createTempFile("print_reads", ".bam");
         ArgumentsBuilder args = new ArgumentsBuilder();
         args.add("--" + StandardArgumentDefinitions.INPUT_LONG_NAME);
