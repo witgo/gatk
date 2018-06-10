@@ -244,6 +244,8 @@ public final class PrintReadsSparkIntegrationTest extends CommandLineProgramTest
 
     @Test( groups = "spark")
     public void testUnSorted() throws Exception {
+        // This is a technically incorrectly sam with a header indicating that it is coordinate sorted when it is actually
+        // queryname sorted. If the ordering is the same after PrintReadsSpark then it means we aren't automatically sorting the output.
         final File inBam = new File(getTestDataDir(), "print_reads.unsorted.bam");
         try (ReadsDataSource ds = new ReadsDataSource(inBam.toPath())){
             Assert.assertEquals(ds.getHeader().getSortOrder(), SAMFileHeader.SortOrder.unsorted);
