@@ -150,7 +150,7 @@ public class ReadsSparkSinkUnitTest extends GATKBaseTest {
         JavaRDD<GATKRead> rddParallelReads = readSource.getParallelReads(inputBam, referenceFile);
         SAMFileHeader header = readSource.getHeader(inputBam, referenceFile);
 
-        ReadsSparkSink.writeReads(ctx, outputPath, referenceFile, rddParallelReads, header, ReadsWriteFormat.SINGLE, 0, outputPartsPath);
+        ReadsSparkSink.writeReads(ctx, outputPath, referenceFile, rddParallelReads, header, ReadsWriteFormat.SINGLE, 0, outputPartsPath, false);
 
         // check that a splitting bai file is created
         if (IOUtils.isBamFileName(outputPath)) {

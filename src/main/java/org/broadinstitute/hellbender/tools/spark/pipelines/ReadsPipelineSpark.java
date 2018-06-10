@@ -217,7 +217,7 @@ public class ReadsPipelineSpark extends GATKSparkTool {
         final JavaRDD<GATKRead> finalReads = ApplyBQSRSparkFn.apply(markedReads, reportBroadcast, header, applyBqsrArgs.toApplyBQSRArgumentCollection(bqsrArgs.PRESERVE_QSCORES_LESS_THAN));
 
         if (outputBam != null) { // only write output of BQSR if output BAM is specified
-            writeReads(ctx, outputBam, finalReads, header);
+            writeReads(ctx, outputBam, finalReads, header, true);
         }
 
         // Run Haplotype Caller

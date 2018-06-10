@@ -197,7 +197,7 @@ public final class MarkDuplicatesSpark extends GATKSparkTool {
             MarkDuplicatesSparkUtils.saveMetricsRDD(resultMetrics, header, metricsByLibrary, metricsFile);
         }
         header.setSortOrder(SAMFileHeader.SortOrder.coordinate);
-        writeReads(ctx, output, finalReadsForMetrics, header);
+        writeReads(ctx, output, finalReadsForMetrics, header, true);
     }
 
 }
