@@ -427,19 +427,54 @@ Here for convenience is a table of \code{Mutect2} filters with their correspondi
  \end{tabular}
 \end{table}
 
-%%%%%%%%%%
+
 \section{Read Orientation Artifact Filter}
 
-Read orientation artifact, also known as orientation bias, arises due to a chemical change to the nucleotide during library prep that results in, for example, G base pairing with A instead of C. Such a change is very base-specific and thus occurs only on one strand of the DNA. We observe such an artifact mode as alt reads at a locus being all F1R2 or all F2R1, and this signature repeating for a particular substitution (e.g. $\text{C} \rightarrow \text{A}$) under a particular reference context (ACT) across the bam.
+Read orientation artifact, also known as orientation bias, arises due to a chemical change in the nucleotide during library prep that results in, for example, G base-paring with A. The artifact is context-specific (e.g. C to A occurring only when the surrounding reference context is CCG) and therefore single-stranded. Downstream, this artifact manifests as low allele fraction SNPs whose evidence for the alt allele consists almost entirely of one read orientation i.e. F1R2 or F2R1 with the similar signature repeated across the sam/bam/cram.
 
-Let $z_i$ denote a 1-hot encoding of the genotype extended to include the possibility of read orientation-based artifact at locus $i$. For example, at a locus where the 3 base-pair reference context is ACT, we have
+Without loss of generality, suppose that the reference context at locus $i$ is ACT. Let $\vz_i$ denote the genotype at locus $i$ with the one-hot encoding $z_{ik} = 1$ iff the genotype of locus $i$ is $k$. The possible genotypes include the read orientation artifacts, as follows:
 
-$$z \in \{ \text{F1R2}_A, \text{F1R2}_G, \text{F1R2}_T, \text{F2R1}_A, \text{F2R1}_G, \text{F2R1}_T,  \text{Hom Ref}, \text{Germline Het}, \text{Somatic Het}, \text{Hom Var} \}$$
+\begin{equation*}
+z_i \in \{ \text{F1R2}_A, \text{F1R2}_G, \text{F1R2}_T, \text{F2R1}_A, \text{F2R1}_G, \text{F2R1}_T,  \text{Hom Ref}, \text{Germline Het}, \text{Somatic Het}, \text{Hom Var} \}
+\end{equation*}
 
-$z_i$ has an associated vector of prior probabilities $\pi$.
+where $z_i = \rm{F1R2_A}$ denotes that at locus $i$ we have a context specific artifact in which the evidence for alt allele A consists entirely of reads in the F1R2 orientation. The rest of artifact states are defined analogously. Let $\vpi$ denote the prior probabilities of the $\vz_i$ under the reference context ACT. Then we have 
 
-Assignment to $z_i$ dictates hyperparameters $\alpha, \beta$ for the conditional distribution over the number of alt reads, $m_i | z_i \sim \mathrm{BetaBinomial}(n, \alpha, \beta)$, where $n_i$ is the depth at site $i$. The number of F1R2 alt reads, denoted $x_i$, is also a beta-binomial distribution with parameters $\alpha'$ and $\beta'$ that depend on $z_i$, but it draws out of $m$ alt reads.
+\begin{equation}
+P(\vz_i) = \prod_k \pi_{k}^{z_{ik}}
+\end{equation}
 
-We use the EM-algorithm to learn the prior probabilities $\pi$. Say more about implementation (data collection then learning step).
+The number of alt reads at a locus is dependent on the genotype $z_i$. Let $n_i$ and $m_i$ denote the total depth and alt depth at locus $i$, respectively. The conditional distribution of $m_i$ is
+
+\begin{equation}
+P(m_i | z_i) = \rm{BetaBinomial}(m_i | n_i, \alpha_{z_i}, \beta_{z_i})
+\end{equation}
+
+where $\alpha_{z_i}$ and $\beta_{z_i}$ are fixed hyperparameters unique to each genotype. Further, within $m_i$ alt reads we expect a heavily skewed distribution of F1R2 reads when we have a read orientation artifact. This is captured in the conditional distribution of F1R2 alt reads. Let $c_i$ denote the number of F1R2 reads among the $m_i$ alt reads at locus $i$. Then we have
+
+\begin{equation}
+P(c_i | m_i, z_i) = \rm{BetaBinomial}( c_i | m_i, \alpha'_{z_i}, \beta'_{z_i})
+\end{equation}
+
+We learn the prior artifact probabilities based on the observed values of $n_i$, $m_i$, $c_i$ for each of $N$ loci using the EM algorithm. In the E-step, we compute the posterior probabilities of $\vz_i$ for $i \in [1, N]$. The joint probabilities of $\vz$ factorizes over $i$, thus the the posteriors over $\vz$ are independent across loci. 
+
+\begin{align}
+P(z_{ik} | m_i, c_i) &\propto P(z_{ik}, m_i, c_i) \\
+			&= \pi_{ik} \rm{BetaBinomial}(m_i | n_i, \alpha_{z_{ik}}, \beta_{z_{ik}})  \rm{BetaBinomial}( c_i | m_i, \alpha'_{z_{ik}}, \beta'_{z_{ik}})
+\end{align}
+
+In the M-step we maximize the expectation of log complete-data likelihood with respect to $\vpi$. The log complete data likelihood is given as
+
+\begin{equation}
+\ln P(\vz, \vm, \vc) = \sum_i \sum_k z_{ik} \big( \ln \pi_{ik} + \ln \rm{BetaBinomial}(m_i | n_i, \alpha_{z_{ik}}, \beta_{z_{ik}})  + \ln \rm{BetaBinomial}( c_i | m_i, \alpha'_{z_{ik}}, \beta'_{z_{ik}}) \big)
+\end{equation}
+
+Maximizing under the constraint $\sum_k \pi_k = 1$ gives us
+
+\begin{equation}
+\pi_k = \frac{N_k}{N}
+\end{equation}
+
+where $N_k = \sum_i P(z_k | m_i, c_i)$ is the effective count of loci with genotype $k$. We alternate E-step and M-step until convergence. We then use the learned prior genotype probabilities to compute the posterior artifact probabilities of variants in a vcf. The filtering threshold is set such that the expected false positive rate doesn't exceed a specified value, as described below.
 
 \end{document}
