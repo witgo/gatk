@@ -6,6 +6,7 @@ import htsjdk.variant.variantcontext.GenotypeBuilder;
 import htsjdk.variant.variantcontext.VariantContext;
 import htsjdk.variant.vcf.VCFFormatHeaderLine;
 import htsjdk.variant.vcf.VCFHeaderLineType;
+import org.broadinstitute.barclay.argparser.Argument;
 import org.broadinstitute.hellbender.engine.ReferenceContext;
 import org.broadinstitute.hellbender.tools.walkers.readorientation.*;
 import org.broadinstitute.hellbender.utils.GATKProtectedVariantContextUtils;
@@ -17,6 +18,7 @@ import org.broadinstitute.hellbender.utils.locusiterator.AlignmentStateMachine;
 import org.broadinstitute.hellbender.utils.read.GATKRead;
 import org.broadinstitute.hellbender.utils.read.ReadUtils;
 import org.broadinstitute.hellbender.utils.variant.GATKVCFConstants;
+import org.broadinstitute.hellbender.utils.variant.GATKVCFHeaderLines;
 
 import java.io.File;
 import java.util.*;
@@ -26,10 +28,16 @@ import static org.broadinstitute.hellbender.tools.walkers.readorientation.F1R2Fi
 /**
  * Created by tsato on 10/20/17.
  */
-public class ReadOrientationArtifact extends GenotypeAnnotation implements StandardMutectAnnotation {
-    private File artifactPriorTable;
-    private List<ArtifactPrior> artifactPriors = Collections.emptyList();
+public class ReadOrientationArtifact extends GenotypeAnnotation implements NonStandardMutectAnnotation {
+    private List<ArtifactPrior> artifactPriors;
     private int minimumBaseQuality = 20;
+
+    // Barclay requires that each annotation define a constructor that takes an argument
+    public ReadOrientationArtifact(){ }
+
+    public ReadOrientationArtifact(final File artifactPriorTable){
+        artifactPriors = ArtifactPrior.readArtifactPriors(artifactPriorTable);
+    }
 
     @Override
     public List<String> getKeyNames() {
@@ -38,12 +46,10 @@ public class ReadOrientationArtifact extends GenotypeAnnotation implements Stand
 
     @Override
     public List<VCFFormatHeaderLine> getDescriptions() {
-        return Arrays.asList(new VCFFormatHeaderLine(GATKVCFConstants.ROF_POSTERIOR_KEY, 1,
-                        VCFHeaderLineType.Float, "posterior probability of read orientaion artifact"),
-                new VCFFormatHeaderLine(GATKVCFConstants.ROF_PRIOR_KEY, 1,
-                        VCFHeaderLineType.Float, "prior probability of read oientation artifact under the present reference context"),
-                new VCFFormatHeaderLine(GATKVCFConstants.ROF_TYPE_KEY, 1,
-                        VCFHeaderLineType.String, "F1R2 or F2R1"));
+        return Arrays.asList(
+                GATKVCFHeaderLines.getFormatLine(GATKVCFConstants.ROF_POSTERIOR_KEY),
+                GATKVCFHeaderLines.getFormatLine(GATKVCFConstants.ROF_PRIOR_KEY),
+                GATKVCFHeaderLines.getFormatLine(GATKVCFConstants.ROF_TYPE_KEY));
     }
 
     @Override
@@ -55,6 +61,7 @@ public class ReadOrientationArtifact extends GenotypeAnnotation implements Stand
         Utils.nonNull(gb);
         Utils.nonNull(vc);
         Utils.nonNull(likelihoods);
+        Utils.nonEmpty(artifactPriors, "artifactPrior may not be empty");
         final boolean normalSample = g.isHomRef();
 
         /**
@@ -63,7 +70,7 @@ public class ReadOrientationArtifact extends GenotypeAnnotation implements Stand
          *  2. Non-SNP variants
          *  3. The table of prior is not provided
          */
-        if (normalSample || !vc.isSNP() || artifactPriors.isEmpty()){
+        if (normalSample || !vc.isSNP() ){
             return;
         }
 
@@ -74,12 +81,12 @@ public class ReadOrientationArtifact extends GenotypeAnnotation implements Stand
 
 
         final String refContext = ref.getKmerAround(vc.getStart(), REF_CONTEXT_PADDING);
-        Utils.validate(refContext.length() == 2* REF_CONTEXT_PADDING + 1,
-                String.format("kmer must have length %d but got %d", 2* REF_CONTEXT_PADDING + 1, refContext.length()));
-
-        if (refContext.contains("N")) {
+        if (refContext ==  null || refContext.contains("N")){
             return;
         }
+
+        Utils.validate(refContext.length() == 2* REF_CONTEXT_PADDING + 1,
+                String.format("kmer must have length %d but got %d", 2* REF_CONTEXT_PADDING + 1, refContext.length()));
 
         final Nucleotide refAllele = F1R2FilterUtils.getMiddleBase(refContext);
         Utils.validate(refAllele == Nucleotide.valueOf(vc.getReference().toString().replace("*", "")),
@@ -157,11 +164,4 @@ public class ReadOrientationArtifact extends GenotypeAnnotation implements Stand
         gb.attribute(GATKVCFConstants.ROF_PRIOR_KEY, artifactPrior[indexOfArtifact]);
         gb.attribute(GATKVCFConstants.ROF_TYPE_KEY, artifactType.toString());
     }
-
-    /** Part of the hack scheme that is required until we can pass an argument directly ot an annotation class **/
-    public void setPriorArtifactTable(final File artifactPriorTable){
-        this.artifactPriorTable = artifactPriorTable;
-        artifactPriors = ArtifactPrior.readArtifactPriors(artifactPriorTable);
-    }
-
 }

@@ -102,24 +102,6 @@ public final class Mutect2Engine implements AssemblyRegionEvaluator {
         checkSampleInBamHeader(normalSample);
 
         annotationEngine = Utils.nonNull(annotatorEngine);
-
-        /*** START HACK ***/
-        // A hack to give the read orientation annotation an input to Mutect2, which is accessible only in M2ArgumentCollection.
-        // We need this until the day we can provide an annotation with an input file directly
-        if (MTAC.artifactPriorTable != null) {
-            final ReadOrientationArtifact readOrientationArtifact = (ReadOrientationArtifact) annotationEngine.getGenotypeAnnotations().stream()
-                    .filter(a -> a.getClass().getSimpleName().equals(ReadOrientationArtifact.class.getSimpleName()))
-                    .findFirst().get();
-            readOrientationArtifact.setPriorArtifactTable(MTAC.artifactPriorTable);
-
-            // Also modify the size of reference bases for the Read Orientation Filter
-            final ReferenceBases referenceBases = (ReferenceBases) annotationEngine.getInfoAnnotations().stream()
-                    .filter(a -> a.getClass().getSimpleName().equals(ReferenceBases.class.getSimpleName()))
-                    .findFirst().get();
-            referenceBases.setNumBasesOnEitherSide(F1R2FilterConstants.REF_CONTEXT_PADDING);
-        }
-        /*** END HACK ***/
-
         assemblyEngine = AssemblyBasedCallerUtils.createReadThreadingAssembler(MTAC);
         likelihoodCalculationEngine = AssemblyBasedCallerUtils.createLikelihoodCalculationEngine(MTAC.likelihoodArgs);
         genotypingEngine = new SomaticGenotypingEngine(samplesList, MTAC, tumorSample, normalSample);

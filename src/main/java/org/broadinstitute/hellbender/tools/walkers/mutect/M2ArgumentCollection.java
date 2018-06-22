@@ -33,8 +33,7 @@ public class M2ArgumentCollection extends AssemblyBasedCallerArgumentCollection 
     public static final String NORMAL_LOD_LONG_NAME = "normal-lod";
     public static final String MAX_MNP_DISTANCE_LONG_NAME = "max-mnp-distance";
     public static final String MAX_MNP_DISTANCE_SHORT_NAME = "mnp-dist";
-    public static final String ARTIFACT_PRIOR_TABLE_LONG_NAME = "prior-artifact-probs";
-    public static final String ARTIFACT_PRIOR_TABLE_SHORT_NAME = "prior";
+    public static final String ARTIFACT_PRIOR_TABLE_NAME = "prior";
 
 
 
@@ -140,7 +139,7 @@ public class M2ArgumentCollection extends AssemblyBasedCallerArgumentCollection 
     @Argument(fullName = NORMAL_LOD_LONG_NAME, optional = true, doc = "LOD threshold for calling normal variant non-germline.")
     public double normalLod = 2.2;
 
-    @Argument(shortName = ARTIFACT_PRIOR_TABLE_SHORT_NAME, fullName = ARTIFACT_PRIOR_TABLE_LONG_NAME, optional = true, doc = "table of prior artifact probabilities for the read orientation filter model")
+    @Argument(fullName = ARTIFACT_PRIOR_TABLE_NAME, optional = true, doc = "table of prior artifact probabilities for the read orientation filter model")
     public File artifactPriorTable = null;
 
     /**

@@ -84,8 +84,7 @@ public class ReadOrientationArtifactUnitTest extends GATKBaseTest {
         final File table = File.createTempFile("prior", "table");
         ArtifactPrior.writeArtifactPriors(hyps, table);
 
-        final ReadOrientationArtifact annotation = new ReadOrientationArtifact();
-        annotation.setPriorArtifactTable(table);
+        final ReadOrientationArtifact annotation = new ReadOrientationArtifact(table);
 
         final GenotypeBuilder genotypeBuilder = new GenotypeBuilder(sampleName);
         final ReadLikelihoods<Allele> readLikelihoods = createReadLikelihoods(depth, alleleFraction, altF1R2Fraction,
