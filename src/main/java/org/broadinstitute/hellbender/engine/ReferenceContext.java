@@ -380,7 +380,7 @@ public final class ReferenceContext implements Iterable<Byte> {
      * Get a kmer around a position in reference without altering the internal state of the object
      * The position must lie within the window
      *
-     * Returns null if at the end of a contig we cannot expand the window
+     * Returns null when, at the ends of a contig, we cannot expand the window to the requested size
      */
     public String getKmerAround(final int center, final int numBasesOnEachSide){
         Utils.validateArg(center >= 1, () -> "start position must be positive");

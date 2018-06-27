@@ -5,8 +5,6 @@ import htsjdk.variant.variantcontext.Genotype;
 import htsjdk.variant.variantcontext.GenotypeBuilder;
 import htsjdk.variant.variantcontext.VariantContext;
 import htsjdk.variant.vcf.VCFFormatHeaderLine;
-import htsjdk.variant.vcf.VCFHeaderLineType;
-import org.broadinstitute.barclay.argparser.Argument;
 import org.broadinstitute.hellbender.engine.ReferenceContext;
 import org.broadinstitute.hellbender.tools.walkers.readorientation.*;
 import org.broadinstitute.hellbender.utils.GATKProtectedVariantContextUtils;
@@ -29,14 +27,14 @@ import static org.broadinstitute.hellbender.tools.walkers.readorientation.F1R2Fi
  * Created by tsato on 10/20/17.
  */
 public class ReadOrientationArtifact extends GenotypeAnnotation implements NonStandardMutectAnnotation {
-    private List<ArtifactPrior> artifactPriors;
+    private ArtifactPriors artifactPriors;
     private int minimumBaseQuality = 20;
 
     // Barclay requires that each annotation define a constructor that takes an argument
     public ReadOrientationArtifact(){ }
 
     public ReadOrientationArtifact(final File artifactPriorTable){
-        artifactPriors = ArtifactPrior.readArtifactPriors(artifactPriorTable);
+        artifactPriors = ArtifactPriors.readArtifactPriors(artifactPriorTable);
     }
 
     @Override
@@ -61,16 +59,10 @@ public class ReadOrientationArtifact extends GenotypeAnnotation implements NonSt
         Utils.nonNull(gb);
         Utils.nonNull(vc);
         Utils.nonNull(likelihoods);
-        Utils.nonEmpty(artifactPriors, "artifactPrior may not be empty");
-        final boolean normalSample = g.isHomRef();
+        Utils.nonNull(artifactPriors);
 
-        /**
-         * Skip the following cases:
-         *  1. Normal sample
-         *  2. Non-SNP variants
-         *  3. The table of prior is not provided
-         */
-        if (normalSample || !vc.isSNP() ){
+        // As of June 2018, genotype is hom ref iff we have the normal sample, but this may change in the future
+        if (g.isHomRef() || !vc.isSNP() ){
             return;
         }
 
@@ -78,7 +70,6 @@ public class ReadOrientationArtifact extends GenotypeAnnotation implements NonSt
         final int indexOfMaxTumorLod = MathUtils.maxElementIndex(tumorLods);
         final Allele altAllele = vc.getAlternateAllele(indexOfMaxTumorLod);
         final Nucleotide altBase = Nucleotide.valueOf(altAllele.toString());
-
 
         final String refContext = ref.getKmerAround(vc.getStart(), REF_CONTEXT_PADDING);
         if (refContext ==  null || refContext.contains("N")){
@@ -135,17 +126,17 @@ public class ReadOrientationArtifact extends GenotypeAnnotation implements NonSt
             }
         }
 
-        final Optional<ArtifactPrior> hyps = ArtifactPrior.searchByContext(artifactPriors, refContext);
+        final Optional<ArtifactPrior> artifactPrior = artifactPriors.get(refContext);
 
-        if (! hyps.isPresent()){
+        if (! artifactPrior.isPresent()){
             return;
         }
         
-        final double[] artifactPrior = hyps.get().getPi(refContext);
+        final double[] prior = artifactPrior.get().getPi();
         final int depth = refCount + altCount;
 
         final double[] log10UnnormalizedPosteriorProbabilities = LearnReadOrientationModelEngine.computeLog10Responsibilities(
-                refAllele, altBase, altCount, altF1R2, depth, artifactPrior);
+                refAllele, altBase, altCount, altF1R2, depth, prior);
 
         // We want the posterior of artifacts given that the site is not hom ref
         log10UnnormalizedPosteriorProbabilities[ArtifactState.HOM_REF.ordinal()] = Double.NEGATIVE_INFINITY;
@@ -161,7 +152,7 @@ public class ReadOrientationArtifact extends GenotypeAnnotation implements NonSt
         gb.attribute(GATKVCFConstants.ROF_POSTERIOR_KEY, posteriorOfArtifact);
         final int indexOfArtifact = artifactType == ReadOrientation.F1R2 ?
                 ArtifactState.getF1R2StateForAlt(altBase).ordinal() : ArtifactState.getF2R1StateForAlt(altBase).ordinal();
-        gb.attribute(GATKVCFConstants.ROF_PRIOR_KEY, artifactPrior[indexOfArtifact]);
+        gb.attribute(GATKVCFConstants.ROF_PRIOR_KEY, prior[indexOfArtifact]);
         gb.attribute(GATKVCFConstants.ROF_TYPE_KEY, artifactType.toString());
     }
 }

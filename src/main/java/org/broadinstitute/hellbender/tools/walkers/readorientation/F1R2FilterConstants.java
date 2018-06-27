@@ -16,16 +16,13 @@ public class F1R2FilterConstants {
     // Padding on each side
     public static final int REF_CONTEXT_PADDING = 1;
     public static final int NUM_STATES = ArtifactState.values().length;
-
     static final int MIDDLE_INDEX = REF_CONTEXT_PADDING;
-
     static final int REFERENCE_CONTEXT_SIZE = 2 * REF_CONTEXT_PADDING + 1; // aka 3
 
-    public static final List<Nucleotide> REGULAR_BASES = Arrays.asList(Nucleotide.A, Nucleotide.C, Nucleotide.G, Nucleotide.T);
-
     // the list of all possible kmers, where k = REFERENCE_CONTEXT_SIZE
-    static final List<String> ALL_KMERS = SequenceUtil.generateAllKmers(REFERENCE_CONTEXT_SIZE).stream()
+    public static final List<String> ALL_KMERS = SequenceUtil.generateAllKmers(REFERENCE_CONTEXT_SIZE).stream()
             .map(String::new).collect(Collectors.toList());
+    public static final int NUM_KMERS = ALL_KMERS.size();
 
     // For each pair of a K-mer and its reverse complement, pick lexicographically smaller K-mer
     // to be the canonical representation of the pair
@@ -45,6 +42,6 @@ public class F1R2FilterConstants {
 
     static final Integer[] emptyBins = IntStream.rangeClosed(1, F1R2FilterConstants.maxDepth).boxed().toArray( Integer[]::new );
 
-    static final int numAltHistogramsPerContext = (REGULAR_BASES.size() - 1) * (ReadOrientation.values().length);
+    static final int numAltHistogramsPerContext = (Nucleotide.REGULAR_BASES.size() - 1) * (ReadOrientation.values().length);
 
 }

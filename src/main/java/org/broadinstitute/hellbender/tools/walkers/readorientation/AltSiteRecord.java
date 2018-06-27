@@ -29,7 +29,7 @@ public class AltSiteRecord {
 
     public AltSiteRecord(final String referenceContext, final int refCount, final int altCount,
                          final int refF1R2, final int altF1R2, final Nucleotide altAllele){
-        Utils.validateArg(F1R2FilterConstants.REGULAR_BASES.contains(altAllele), "altAllele must be one of {A,C,G,T} but got " + altAllele);
+        Utils.validateArg(Nucleotide.REGULAR_BASES.contains(altAllele), "altAllele must be one of {A,C,G,T} but got " + altAllele);
 
         this.referenceContext = referenceContext;
         this.refCount = refCount;

@@ -10,7 +10,7 @@ import org.broadinstitute.barclay.argparser.Argument;
 import org.broadinstitute.barclay.argparser.CommandLineProgramProperties;
 import org.broadinstitute.hellbender.cmdline.CommandLineProgram;
 import org.broadinstitute.hellbender.cmdline.StandardArgumentDefinitions;
-import org.broadinstitute.hellbender.cmdline.programgroups.CoverageAnalysisProgramGroup;
+import org.broadinstitute.hellbender.cmdline.programgroups.ShortVariantDiscoveryProgramGroup;
 import org.broadinstitute.hellbender.utils.Nucleotide;
 import org.broadinstitute.hellbender.utils.Utils;
 
@@ -21,11 +21,20 @@ import java.util.stream.Collectors;
 /**
  * Learn the prior probability of read orientation artifact from the output of {@link CollectF1R2Counts}
  * Details of the model may be found in docs/mutect/mutect.pdf.
+ *
+ *
+ * <h3>Usage Examples</h3>
+ *
+ * gatk LearnReadOrientationModel \
+ *   -alt-table my-tumor-sample-alt.tsv \
+ *   -ref-hist my-tumor-sample-ref.metrics \
+ *   -alt-hist my-tumor-sample-alt-depth1.metrics \
+ *   -O my-tumor-sample-artifact-prior.tsv
  */
 @CommandLineProgramProperties(
         summary = "Collect counts of F1R2 reads at each locus of a sam/bam/cram",
         oneLineSummary = "Collect counts of F1R2 reads at each locus of a sam/bam/cram",
-        programGroup = CoverageAnalysisProgramGroup.class // TODO: check that this is correct
+        programGroup = ShortVariantDiscoveryProgramGroup.class
 )
 public class LearnReadOrientationModel extends CommandLineProgram {
     public static final double DEFAULT_CONVERGENCE_THRESHOLD = 1e-4;
@@ -55,6 +64,8 @@ public class LearnReadOrientationModel extends CommandLineProgram {
     List<Histogram<Integer>> refHistograms;
     List<Histogram<Integer>> altHistograms;
 
+    final ArtifactPriors artifactPriors = new ArtifactPriors();;
+
     @Override
     protected void onStartup(){
         final MetricsFile<?, Integer> referenceSiteMetrics = readMetricsFile(refHistogramTable);
@@ -78,7 +89,6 @@ public class LearnReadOrientationModel extends CommandLineProgram {
 
         // Since AGT F1R2 is equivalent to ACT F2R1 (in the sense that the order of bases in the original molecule on which
         // the artifact befell and what the base changed to is the same)
-        final List<ArtifactPrior> artifactPriorAcrossContexts = new ArrayList<>((int) Math.pow(F1R2FilterConstants.REGULAR_BASES.size(), F1R2FilterConstants.REFERENCE_CONTEXT_SIZE)/2);
 
         // TODO: extract a method to account for reverse complement, and create a test
         for (final String refContext : F1R2FilterConstants.CANONICAL_KMERS){
@@ -122,10 +132,10 @@ public class LearnReadOrientationModel extends CommandLineProgram {
                     maxEMIterations,
                     logger);
             final ArtifactPrior artifactPrior = engine.learnPriorForArtifactStates();
-            artifactPriorAcrossContexts.add(artifactPrior);
+            artifactPriors.set(artifactPrior);
         }
 
-        ArtifactPrior.writeArtifactPriors(artifactPriorAcrossContexts, output);
+        artifactPriors.writeArtifactPriors(output);
         return "SUCCESS";
     }
 
@@ -164,7 +174,7 @@ public class LearnReadOrientationModel extends CommandLineProgram {
 
         final List<Histogram<Integer>> combinedHistograms = new ArrayList<>(F1R2FilterConstants.numAltHistogramsPerContext);
 
-        for (Nucleotide altAllele : F1R2FilterConstants.REGULAR_BASES){
+        for (Nucleotide altAllele : Nucleotide.REGULAR_BASES){
             // Skip when the alt base is the ref base, which doesn't make sense because this is a histogram of alt sites
             if (altAllele == F1R2FilterUtils.getMiddleBase(refContext)){
                 continue;

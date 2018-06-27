@@ -80,9 +80,9 @@ public class ReadOrientationArtifactUnitTest extends GATKBaseTest {
         int numRefExamples = 1_000_000;
         int numAltExamples = 1000;
 
-        final List<ArtifactPrior> hyps = Collections.singletonList(new ArtifactPrior(refContext, pi, numRefExamples, numAltExamples));
+        final List<ArtifactPrior> prior = Collections.singletonList(new ArtifactPrior(refContext, pi, numRefExamples, numAltExamples));
         final File table = File.createTempFile("prior", "table");
-        ArtifactPrior.writeArtifactPriors(hyps, table);
+        ArtifactPrior.writeArtifactPriors(prior, table);
 
         final ReadOrientationArtifact annotation = new ReadOrientationArtifact(table);
 

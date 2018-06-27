@@ -8,6 +8,7 @@ import org.broadinstitute.hellbender.GATKBaseTest;
 import org.broadinstitute.hellbender.Main;
 import org.broadinstitute.hellbender.cmdline.StandardArgumentDefinitions;
 import org.broadinstitute.hellbender.engine.FeatureDataSource;
+import org.broadinstitute.hellbender.tools.walkers.annotator.ReferenceBases;
 import org.broadinstitute.hellbender.tools.walkers.mutect.FilterMutectCalls;
 import org.broadinstitute.hellbender.tools.walkers.mutect.M2ArgumentCollection;
 import org.broadinstitute.hellbender.tools.walkers.mutect.M2FiltersArgumentCollection;
@@ -68,7 +69,7 @@ public class ReadOrientationModelIntegrationTest extends CommandLineProgramTest 
                     "--" + StandardArgumentDefinitions.OUTPUT_LONG_NAME, priorTable.getAbsolutePath()),
                 LearnReadOrientationModel.class.getSimpleName()));
 
-        final List<ArtifactPrior> artifactPriorList = ArtifactPrior.readArtifactPriors(priorTable);
+        final ArtifactPriors artifactPriors = ArtifactPriors.readArtifactPriors(priorTable);
 
         // Run Mutect 2
         final File unfilteredVcf = GATKBaseTest.createTempFile("unfiltered", ".vcf");
@@ -116,10 +117,11 @@ public class ReadOrientationModelIntegrationTest extends CommandLineProgramTest 
 
             // Check that the correct prior was added to the format field by Mutect
             final double prior = GATKProtectedVariantContextUtils.getAttributeAsDouble(variant.get().getGenotype(0), ROF_PRIOR_KEY, -1.0);
-            final String refContext = variant.get().getAttributeAsString(REFERENCE_BASES_KEY, "");
-            final ArtifactPrior hyps = ArtifactPrior.searchByContext(artifactPriorList, refContext).get();
+            final String refBases = variant.get().getAttributeAsString(REFERENCE_BASES_KEY, "");
+            final String refContext = ReferenceBases.getNMiddleBases(refBases, F1R2FilterConstants.REFERENCE_CONTEXT_SIZE);
+            final ArtifactPrior ap = artifactPriors.get(refContext).get();
 
-            Assert.assertEquals(prior, hyps.getPi(expectedSourceOfPrior, refContext), 1e-3);
+            Assert.assertEquals(prior, ap.getPi(expectedSourceOfPrior), 1e-3);
 
             final String expectedFilter = observedOrientation == F1R2 ? F1R2_ARTIFACT_FILTER_NAME : F2R1_ARTIFACT_FILTER_NAME;
 

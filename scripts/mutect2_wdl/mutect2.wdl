@@ -76,8 +76,11 @@ workflow Mutect2 {
     File? variants_for_contamination_index
     File? realignment_index_bundle
     String? realignment_extra_args
-    Boolean? run_orientation_bias_filter
-    Boolean run_ob_filter = select_first([run_orientation_bias_filter, false])
+    Boolean? run_old_orientation_bias_filter
+    Boolean run_old_ob_filter = select_first([run_old_orientation_bias_filter, false])
+    Boolean? run_new_orientation_bias_filter
+    Boolean run_new_ob_filter = select_first([run_new_orientation_bias_filter, false])
+    File? new_ob_filter_training_intervals
     Array[String]? artifact_modes
     File? tumor_sequencing_artifact_metrics
     String? m2_extra_args
@@ -188,6 +191,7 @@ workflow Mutect2 {
                 preemptible_attempts = preemptible_attempts,
                 m2_extra_args = m2_extra_args,
                 make_bamout = make_bamout_or_default,
+                artifact_prior_table = LearnReadOrientationModel.artifact_prior_table,
                 compress = compress,
                 gga_vcf = gga_vcf,
                 gga_vcf_idx = gga_vcf_idx,
@@ -238,7 +242,7 @@ workflow Mutect2 {
         }
     }
 
-    if (run_ob_filter && !defined(tumor_sequencing_artifact_metrics)) {
+    if (run_old_ob_filter && !defined(tumor_sequencing_artifact_metrics)) {
         call CollectSequencingArtifactMetrics {
             input:
                 gatk_docker = gatk_docker,
@@ -249,6 +253,33 @@ workflow Mutect2 {
                 tumor_bai = tumor_bai,
                 gatk_override = gatk_override,
                 disk_space = tumor_bam_size + ref_size + disk_pad
+        }
+    }
+
+    if (run_new_ob_filter) {
+        call CollectF1R2Counts {
+            input:
+                gatk_docker = gatk_docker,
+                ref_fasta = ref_fasta,
+                ref_fai = ref_fai,
+                preemptible_attempts = preemptible_attempts,
+                tumor_bam = tumor_bam,
+                tumor_bai = tumor_bai,
+                tumor_sample_name = M2.tumor_sample[0],
+                gatk_override = gatk_override,
+                disk_space = tumor_bam_size + ref_size + disk_pad,
+                intervals = if defined(new_ob_filter_training_intervals) then new_ob_filter_training_intervals else intervals 
+        }
+
+        call LearnReadOrientationModel {
+            input:
+                tumor_sample_name = M2.tumor_sample[0],
+                alt_table = CollectF1R2Counts.alt_table,
+                ref_histogram = CollectF1R2Counts.ref_histogram,
+                alt_histograms = CollectF1R2Counts.alt_histograms,
+                gatk_override = gatk_override,
+                gatk_docker = gatk_docker,
+                preemptible_attempts = preemptible_attempts
         }
     }
 
@@ -288,7 +319,7 @@ workflow Mutect2 {
             disk_space = ceil(size(MergeVCFs.merged_vcf, "GB") * small_input_to_output_multiplier) + disk_pad
     }
 
-    if (run_ob_filter) {
+    if (run_old_ob_filter) {
         # Get the metrics either from the workflow input or CollectSequencingArtifactMetrics if no workflow input is provided
         File input_artifact_metrics = select_first([tumor_sequencing_artifact_metrics, CollectSequencingArtifactMetrics.pre_adapter_metrics])
 
@@ -456,6 +487,7 @@ task M2 {
     Boolean compress
     File? gga_vcf
     File? gga_vcf_idx
+    File? artifact_prior_table
 
     String output_vcf = "output" + if compress then ".vcf.gz" else ".vcf"
     String output_vcf_index = output_vcf + if compress then ".tbi" else ".idx"
@@ -502,6 +534,7 @@ task M2 {
             ${"--genotyping-mode GENOTYPE_GIVEN_ALLELES --alleles " + gga_vcf} \
             -O "${output_vcf}" \
             ${true='--bam-output bamout.bam' false='' make_bamout} \
+            ${"-prior" + artifact_prior_table}
             ${m2_extra_args}
     >>>
 
@@ -623,6 +656,7 @@ task MergeBamOuts {
     }
 }
 
+# This task is deprecated and is no longer supported
 task CollectSequencingArtifactMetrics {
     # inputs
     File ref_fasta
@@ -663,6 +697,106 @@ task CollectSequencingArtifactMetrics {
     output {
         File pre_adapter_metrics = "gatk.pre_adapter_detail_metrics"
     }
+}
+
+task CollectF1R2Counts {
+    # input
+    File ref_fasta
+    File ref_fai
+    File tumor_bam
+    File tumor_bai
+    File tumor_sample_name
+
+    File? gatk_override
+    File? intervals
+
+    # runtime
+    String gatk_docker
+    Int? mem
+    Int? preemptible_attempts
+    Int? disk_space
+    Int? cpu
+    Boolean use_ssd = false
+
+    # Mem is in units of GB but our command and memory runtime values are in MB
+    Int machine_mem = if defined(mem) then mem * 1000 else 7000
+    Int command_mem = machine_mem - 1000
+
+    command {
+        set -e
+        export GATK_LOCAL_JAR=${default="/root/gatk.jar" gatk_override}
+        
+        gatk --java-options "-Xmx${command_mem}m" CollectF1R2Counts \
+        -I ${tumor_bam} -O "${tumor_sample_name}-artifact-prior-table.tsv" -R ${ref_fasta} \
+        ${"-L " + intervals} \
+        -alt-table "${tumor_sample_name}-alt.tsv" \
+        -ref-hist "${tumor_sample_name}-ref.metrics" \
+        -alt-hist "${tumor_sample_name}-alt.metrics"
+    }
+
+    runtime {
+        docker: gatk_docker
+        bootDiskSizeGb: 12
+        memory: machine_mem + " MB"
+        disks: "local-disk " + select_first([disk_space, 100]) + if use_ssd then " SSD" else " HDD"
+        preemptible: select_first([preemptible_attempts, 10])
+        cpu: select_first([cpu, 1])
+    }
+
+    output {
+        File alt_table = "${tumor_sample_name}-alt.tsv"
+        File ref_histogram = "${tumor_sample_name}-ref.metrics"
+        File alt_histograms = "${tumor_sample_name}-alt.metrics"
+    }
+}
+
+task LearnReadOrientationModel {
+    File tumor_sample_name
+    File alt_table
+    File ref_histogram
+    File? alt_histograms
+
+    File? gatk_override
+    File? intervals
+
+    # runtime
+    String gatk_docker
+    Int? mem
+    Int? preemptible_attempts
+    Int? disk_space
+    Int? cpu
+    Boolean use_ssd = false
+
+    # Mem is in units of GB but our command and memory runtime values are in MB
+    Int machine_mem = if defined(mem) then mem * 1000 else 8000
+    Int command_mem = machine_mem - 1000
+
+    command {
+        set -e
+        export GATK_LOCAL_JAR=${default="/root/gatk.jar" gatk_override}
+        
+        gatk --java-options "-Xmx${command_mem}m" LearnReadOrientationModel \
+        -R ${ref_fasta} \
+        -alt-table ${alt_table} 
+        -ref-hist ${ref_histogram} \
+        -alt-hist ${alt_histograms} \
+        -O ${tumor_sample_name}-hyperparameters.tsv \
+        -I ${tumor_bam} -O "${tumor_sample_name}-artifact-prior-table.tsv"
+    }
+
+    runtime {
+        docker: gatk_docker
+        bootDiskSizeGb: 12
+        memory: machine_mem + " MB"
+        disks: "local-disk " + select_first([disk_space, 100]) + if use_ssd then " SSD" else " HDD"
+        preemptible: select_first([preemptible_attempts, 10])
+        cpu: select_first([cpu, 1])
+    }
+
+    output {
+        File artifact_prior_table = "${tumor_sample_name}-artifact-prior-table.tsv"
+    }
+
 }
 
 task CalculateContamination {

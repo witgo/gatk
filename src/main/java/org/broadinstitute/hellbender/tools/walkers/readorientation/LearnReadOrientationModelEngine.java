@@ -188,7 +188,7 @@ public class LearnReadOrientationModelEngine {
         // Compute the responsibilities of sites of ref sites (alt depth = 0) and alt sites with depth=1
         for (int i = 0; i < F1R2FilterConstants.maxDepth; i++){
             final int depth = i+1;
-            for (Nucleotide altAllele : F1R2FilterConstants.REGULAR_BASES){
+            for (Nucleotide altAllele : Nucleotide.REGULAR_BASES){
                 for (ReadOrientation orientation : ReadOrientation.values()){
                     if (altAllele == refAllele){
                         continue;
@@ -262,7 +262,7 @@ public class LearnReadOrientationModelEngine {
                 continue;
             }
 
-            if (ArtifactState.artifactStates.contains(state) && ArtifactState.getAltAlleleOfArtifact(state) != altAllele) {
+            if (ArtifactState.artifactStates.contains(state) && state.getAltAlleleOfArtifact() != altAllele) {
                 // The indicator function is 0
                 log10UnnormalizedResponsibilities[stateIndex] = Double.NEGATIVE_INFINITY;
                 continue;

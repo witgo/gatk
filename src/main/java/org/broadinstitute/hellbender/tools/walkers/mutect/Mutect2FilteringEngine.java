@@ -262,7 +262,7 @@ public class Mutect2FilteringEngine {
     }
 
     /***
-     * This filter requires the INFO field annotation {@code REFERENCE_CONTEXT_KEY} and {@code F1R2_KEY}
+     * This filter requires the INFO field annotation {@link REFERENCE_CONTEXT_KEY} and {@link F1R2_KEY}
      */
      private void applyReadOrientationFilter(final M2FiltersArgumentCollection MTFAC, final VariantContext vc, final VariantContextBuilder vcb, final double threshold){
         final Genotype tumorGenotype = vc.getGenotype(tumorSample);

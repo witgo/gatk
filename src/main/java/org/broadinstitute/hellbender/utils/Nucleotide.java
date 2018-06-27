@@ -1,6 +1,7 @@
 package org.broadinstitute.hellbender.utils;
 
 import java.util.Arrays;
+import java.util.List;
 import java.util.stream.LongStream;
 
 /**
@@ -15,6 +16,8 @@ import java.util.stream.LongStream;
  */
 public enum Nucleotide {
     A, C, G, T, N, X, INVALID;
+
+    public static final List<Nucleotide> REGULAR_BASES = Arrays.asList(A, C, G, T);
 
     private static final Nucleotide[] baseToValue = new Nucleotide[Byte.MAX_VALUE + 1];
 

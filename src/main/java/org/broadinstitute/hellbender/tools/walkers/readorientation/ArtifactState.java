@@ -2,7 +2,6 @@ package org.broadinstitute.hellbender.tools.walkers.readorientation;
 
 import org.broadinstitute.hellbender.exceptions.UserException;
 import org.broadinstitute.hellbender.utils.Nucleotide;
-import org.broadinstitute.hellbender.utils.Utils;
 
 import java.util.Arrays;
 import java.util.List;
@@ -12,12 +11,24 @@ import java.util.stream.Collectors;
  * This enum encapsulates the domain of the discrete latent random variable z
  */
 public enum ArtifactState {
-    // Artifact States
-    F1R2_A, F1R2_C, F1R2_G, F1R2_T,
-    F2R1_A, F2R1_C, F2R1_G, F2R1_T,
+    /* Artifact States - provide the reverse complement of each state in the constructor
+     * The constructor must take string value of the rc states because it doesn't allow forward referencing
+     * of an ArtifactState
+     */
+    F1R2_A("F2R1_T", Nucleotide.A), F1R2_C("F2R1_G", Nucleotide.C), F1R2_G("F2R1_C", Nucleotide.G), F1R2_T("F2R1_A", Nucleotide.T),
+    F2R1_A("F1R2_T", Nucleotide.A), F2R1_C("F1R2_G", Nucleotide.C), F2R1_G("F1R2_C", Nucleotide.G), F2R1_T("F1R2_A", Nucleotide.T),
 
     // Non Artifact States
-    HOM_REF, GERMLINE_HET, SOMATIC_HET, HOM_VAR;
+    HOM_REF("HOM_REF", Nucleotide.INVALID), GERMLINE_HET("GERMLINE_HET", Nucleotide.INVALID),
+    SOMATIC_HET("SOMATIC_HET", Nucleotide.INVALID), HOM_VAR("HOM_VAR", Nucleotide.INVALID);
+
+    final private String reverseComplementState;
+    final private Nucleotide altAllele;
+
+    ArtifactState(final String reverseComplementState, final Nucleotide altAllele){
+        this.reverseComplementState = reverseComplementState;
+        this.altAllele = altAllele;
+    }
 
     public static List<ArtifactState> getStates(){
         return Arrays.stream(ArtifactState.values()).collect(Collectors.toList());
@@ -46,26 +57,15 @@ public enum ArtifactState {
         }
     }
 
-    // Given a state z, return the alt allele of the artifact that the state encodes
-    public static Nucleotide getAltAlleleOfArtifact(final ArtifactState z){
-        Utils.validateArg(Arrays.asList(ArtifactState.F1R2_A, ArtifactState.F1R2_C, ArtifactState.F1R2_G, ArtifactState.F1R2_T,
-                ArtifactState.F2R1_A, ArtifactState.F2R1_C, ArtifactState.F2R1_G, ArtifactState.F2R1_T).contains(z),
-                String.format("ArtifactState must be F1R2_a or F2R1_a but got %s", z));
-        switch (z){
-            case F1R2_A : return Nucleotide.A;
-            case F1R2_C : return Nucleotide.C;
-            case F1R2_G : return Nucleotide.G;
-            case F1R2_T : return Nucleotide.T;
-            case F2R1_A : return Nucleotide.A;
-            case F2R1_C : return Nucleotide.C;
-            case F2R1_G : return Nucleotide.G;
-            case F2R1_T : return Nucleotide.T;
-            default: throw new UserException(String.format("Invalid state: %s", z));
-        }
+    public Nucleotide getAltAlleleOfArtifact(){
+        return altAllele;
+    }
+
+    public ArtifactState getRevCompState(){
+        return ArtifactState.valueOf(reverseComplementState);
     }
 
     static List<ArtifactState> artifactStates = Arrays.asList(F1R2_A, F1R2_C, F1R2_G, F1R2_T, F2R1_A, F2R1_C, F2R1_G, F2R1_T);
-
 
     public static ArtifactState getF1R2StateForAlt(final Nucleotide altAllele) {
         switch (altAllele) {
@@ -97,26 +97,13 @@ public enum ArtifactState {
         }
     }
 
-    public static ArtifactState getRevCompState(final ArtifactState state){
-        switch (state) {
-            case F1R2_A:
-                return F2R1_T;
-            case F1R2_C:
-                return F2R1_G;
-            case F1R2_G:
-                return F2R1_C;
-            case F1R2_T:
-                return F2R1_A;
-            case F2R1_A:
-                return F1R2_T;
-            case F2R1_C:
-                return F1R2_G;
-            case F2R1_G:
-                return F1R2_C;
-            case F2R1_T:
-                return F1R2_A;
-            default:
-                return state;
-        }
+    /**
+     *
+     * @param probability
+     * @param state
+     */
+    public static void setStatePrior(final double[] prior, final double probability, final ArtifactState state){
+        prior[state.ordinal()] = probability;
     }
+
 }

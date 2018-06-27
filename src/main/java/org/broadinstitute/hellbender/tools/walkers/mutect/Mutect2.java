@@ -11,9 +11,7 @@ import org.broadinstitute.hellbender.engine.*;
 import org.broadinstitute.hellbender.engine.filters.ReadFilter;
 import org.broadinstitute.hellbender.tools.walkers.annotator.Annotation;
 import org.broadinstitute.hellbender.tools.walkers.annotator.ReadOrientationArtifact;
-import org.broadinstitute.hellbender.tools.walkers.annotator.ReferenceBases;
 import org.broadinstitute.hellbender.tools.walkers.annotator.VariantAnnotatorEngine;
-import org.broadinstitute.hellbender.tools.walkers.readorientation.F1R2FilterConstants;
 import org.broadinstitute.hellbender.utils.downsampling.MutectDownsampler;
 import org.broadinstitute.hellbender.utils.downsampling.ReadsDownsampler;
 
@@ -194,12 +192,6 @@ public final class Mutect2 extends AssemblyRegionWalker {
         if (MTAC.artifactPriorTable != null){
             // Enable the annotations associated with the read orientation model
             annotations.add(new ReadOrientationArtifact(MTAC.artifactPriorTable));
-
-            // Modify the size of reference context size for the read orientation model
-            final ReferenceBases referenceBases = (ReferenceBases) annotations.stream()
-                    .filter(a -> a.getClass().getSimpleName().equals(ReferenceBases.class.getSimpleName()))
-                    .findFirst().get();
-            referenceBases.setNumBasesOnEitherSide(F1R2FilterConstants.REF_CONTEXT_PADDING);
         }
         return annotations;
     }

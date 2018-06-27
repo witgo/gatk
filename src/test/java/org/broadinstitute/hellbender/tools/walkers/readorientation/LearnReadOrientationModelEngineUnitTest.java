@@ -117,8 +117,8 @@ public class LearnReadOrientationModelEngineUnitTest extends CommandLineProgramT
         Assert.assertEquals(engine.getEffectiveCounts(artifactState), (double) numAltExamples, EPSILON);
         Assert.assertEquals(engine.getEffectiveCounts(ArtifactState.HOM_REF), (double) numRefExamples, EPSILON);
 
-        Assert.assertEquals(artifactPrior.getPi(artifactState, refContext), (double) numAltExamples/numExamples, EPSILON);
-        Assert.assertEquals(artifactPrior.getPi(ArtifactState.HOM_REF, refContext), (double) numRefExamples/numExamples, EPSILON);
+        Assert.assertEquals(artifactPrior.getPi(artifactState), (double) numAltExamples/numExamples, EPSILON);
+        Assert.assertEquals(artifactPrior.getPi(ArtifactState.HOM_REF), (double) numRefExamples/numExamples, EPSILON);
     }
 
 
@@ -182,12 +182,12 @@ public class LearnReadOrientationModelEngineUnitTest extends CommandLineProgramT
         Assert.assertEquals(engine.getEffectiveCounts(ArtifactState.SOMATIC_HET), (double) numSomaticHetExamples, epsilon);
 
         final int numExamples = numRefExamples + 2*numArtifactExamples + numSomaticHetExamples;
-        Assert.assertEquals(artifactPrior.getPi(ArtifactState.SOMATIC_HET, refContext), (double) numSomaticHetExamples/numExamples, 1e-3);
-        Assert.assertEquals(MathUtils.sum(artifactPrior.getPi(refContext)), 1.0, 1e-3);
+        Assert.assertEquals(artifactPrior.getPi(ArtifactState.SOMATIC_HET), (double) numSomaticHetExamples/numExamples, 1e-3);
+        Assert.assertEquals(MathUtils.sum(artifactPrior.getPi()), 1.0, 1e-3);
 
         // Make sure ref->ref transitions get 0 probability
         for (ArtifactState state : ArtifactState.getRefToRefArtifacts(refAllele)){
-            Assert.assertEquals(artifactPrior.getPi(state, refContext), 0.0);
+            Assert.assertEquals(artifactPrior.getPi(state), 0.0);
         }
     }
 
@@ -242,13 +242,13 @@ public class LearnReadOrientationModelEngineUnitTest extends CommandLineProgramT
         new Main().instanceMain(makeCommandLineArgs(
                 Arrays.asList(
                         "-alt-table", altMatrixOutput.getAbsolutePath(),
-                        "-ref-table", refHistogramOutput.getAbsolutePath(),
+                        "-ref-hist", refHistogramOutput.getAbsolutePath(),
                         "-O", artifactPriorTable.getAbsolutePath()),
                 LearnReadOrientationModel.class.getSimpleName()));
 
-        final List<ArtifactPrior> artifactPriors = ArtifactPrior.readArtifactPriors(artifactPriorTable);
+        final ArtifactPriors artifactPriors = ArtifactPriors.readArtifactPriors(artifactPriorTable);
 
-        Assert.assertEquals(artifactPriors.size(), expectedNumUniqueContexts);
+        Assert.assertEquals(artifactPriors.getNumUniqueContexts(), expectedNumUniqueContexts);
 
         final double expectedRefFraction = (double) numRefExamples/(numArtifactExamples + numRefExamples);
         final double expectedArtifactFraction = (double) numArtifactExamples/(numArtifactExamples + numRefExamples);
@@ -259,9 +259,9 @@ public class LearnReadOrientationModelEngineUnitTest extends CommandLineProgramT
             final ReadOrientation f1r2 = transition.getRight();
             final ArtifactState state = f1r2 == ReadOrientation.F1R2 ? ArtifactState.getF1R2StateForAlt(altAllele) :
                     ArtifactState.getF2R1StateForAlt(altAllele);
-            final ArtifactPrior hyp = ArtifactPrior.searchByContext(artifactPriors, refContext).get();
-            Assert.assertEquals(hyp.getPi(state, refContext), expectedArtifactFraction, epsilon);
-            Assert.assertEquals(hyp.getPi(ArtifactState.HOM_REF, refContext), expectedRefFraction, epsilon);
+            final ArtifactPrior artifactPrior = artifactPriors.get(refContext).get();
+            Assert.assertEquals(artifactPrior.getPi(state), expectedArtifactFraction, epsilon);
+            Assert.assertEquals(artifactPrior.getPi(ArtifactState.HOM_REF), expectedRefFraction, epsilon);
         }
     }
 
@@ -389,7 +389,7 @@ public class LearnReadOrientationModelEngineUnitTest extends CommandLineProgramT
      */
     private List<Histogram<Integer>> createDepthOneAltHistograms(final String refContext, final int depth, final int numExamples) {
         final List<Histogram<Integer>> altComputationalHistograms = new ArrayList<>(F1R2FilterConstants.numAltHistogramsPerContext);
-        for (final Nucleotide altAllele : F1R2FilterConstants.REGULAR_BASES){
+        for (final Nucleotide altAllele : Nucleotide.REGULAR_BASES){
             if (altAllele == F1R2FilterUtils.getMiddleBase(refContext)){
                 continue;
             }

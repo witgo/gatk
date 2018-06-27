@@ -6,6 +6,7 @@ import htsjdk.variant.vcf.VCFHeaderLineType;
 import htsjdk.variant.vcf.VCFInfoHeaderLine;
 import org.broadinstitute.barclay.help.DocumentedFeature;
 import org.broadinstitute.hellbender.engine.ReferenceContext;
+import org.broadinstitute.hellbender.utils.Utils;
 import org.broadinstitute.hellbender.utils.genotyper.ReadLikelihoods;
 import org.broadinstitute.hellbender.utils.help.HelpConstants;
 import org.broadinstitute.hellbender.utils.logging.OneShotLogger;
@@ -27,9 +28,7 @@ import java.util.Map;
 public class ReferenceBases extends InfoFieldAnnotation implements StandardMutectAnnotation {
     public static final String REFERENCE_BASES_KEY = "REF_BASES";
 
-    private int DEFAULT_NUM_BASES_ON_EITHER_SIDE = 10;
-
-    private int NUM_BASES_ON_EITHER_SIDE = DEFAULT_NUM_BASES_ON_EITHER_SIDE;
+    private int NUM_BASES_ON_EITHER_SIDE = 10;
 
     protected final OneShotLogger warning = new OneShotLogger(this.getClass());
 
@@ -55,8 +54,14 @@ public class ReferenceBases extends InfoFieldAnnotation implements StandardMutec
         return Arrays.asList(new VCFInfoHeaderLine(ReferenceBases.REFERENCE_BASES_KEY, 1, VCFHeaderLineType.String, "local reference bases."));
     }
 
-    public void setNumBasesOnEitherSide(final int numBasesOnEitherSide){
-        this.NUM_BASES_ON_EITHER_SIDE = numBasesOnEitherSide;
+    public static String getNMiddleBases(final String bases, final int n){
+        Utils.validateArg(bases.length() >= n, "bases must have n or more bases. bases = " + bases);
+        Utils.validateArg( bases.length() % 2 == 1, "the length of bases must be an odd number");
+        Utils.validateArg( n % 2 == 1, "n must be odd");
+
+        final int numBasesOnEachSide = n/2;
+        final int middleIndex = bases.length()/2;
+        return bases.substring(middleIndex - numBasesOnEachSide, middleIndex + numBasesOnEachSide + 1);
 
     }
 }

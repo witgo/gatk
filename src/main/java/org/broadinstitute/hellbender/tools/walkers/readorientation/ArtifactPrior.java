@@ -7,6 +7,7 @@ import org.broadinstitute.hellbender.utils.tsv.DataLine;
 import org.broadinstitute.hellbender.utils.tsv.TableColumnCollection;
 import org.broadinstitute.hellbender.utils.tsv.TableReader;
 import org.broadinstitute.hellbender.utils.tsv.TableWriter;
+import scala.collection.Seq;
 
 import java.io.File;
 import java.io.IOException;
@@ -21,56 +22,40 @@ import java.util.stream.Collectors;
 public class ArtifactPrior {
     private final String referenceContext;
     private final double[] pi;
-    private final double[] revCompPi;
     private final int numExamples;
     private final int numAltExamples;
-    private final List<String> refContextAndItsReverseComplmenet;
 
     public ArtifactPrior(final String referenceContext, final double[] pi, final int numExamples, final int numAltExamples) {
-        this.referenceContext = F1R2FilterConstants.CANONICAL_KMERS.contains(referenceContext) ?
-                referenceContext : SequenceUtil.reverseComplement(referenceContext);
-        this.refContextAndItsReverseComplmenet = Arrays.asList(this.referenceContext, SequenceUtil.reverseComplement(this.referenceContext));
+        this.referenceContext = referenceContext;
         this.pi = pi;
-        this.revCompPi = new double[F1R2FilterConstants.NUM_STATES];
-        for (ArtifactState s : ArtifactState.values()){
-            revCompPi[s.ordinal()] = pi[ArtifactState.getRevCompState(s).ordinal()];
-        }
         this.numExamples = numExamples;
         this.numAltExamples = numAltExamples;
     }
 
-    /**
-     * The two reference contexts that are reverse complements of each other share the identical artifact prior
-     * object. What differentiates the use case between them is the order in which the prior probabilities appear:
-     * e.g. F1R2_T in one context is F2R1_A in the other. We enforce that these not get mixed up by requiring that
-     * the caller specify the reference context whenever the caller wishes to retrieve prior probabilities
-     */
-    public double[] getPi(final String queryContext){
-        Utils.validate(refContextAndItsReverseComplmenet.contains(queryContext),
-                queryContext + " is not a valid reference context for this artifact prior object");
-        if (queryContext.equals(this.referenceContext)){
-            return pi;
-        } else {
-            return revCompPi;
-        }
+    public double getPi(final ArtifactState state) {
+        return pi[state.ordinal()];
     }
 
-    public double getPi(final ArtifactState state, final String queryContext) {
-        Utils.validate(refContextAndItsReverseComplmenet.contains(queryContext),
-                queryContext + " is not a valid reference context for this artifact prior object");
-        if (queryContext.equals(this.referenceContext)){
-            return pi[state.ordinal()];
-        } else {
-            return revCompPi[state.ordinal()];
-        }
+    public double[] getPi() {
+        return pi;
     }
 
     public String getReferenceContext() {
         return referenceContext;
     }
 
-    public String getReverseComplement() {
+    public String getRCContext() {
         return SequenceUtil.reverseComplement(referenceContext);
+    }
+
+
+    public ArtifactPrior getReverseComplement(){
+        final double[] revCompPi = new double[F1R2FilterConstants.NUM_STATES];
+        final String revCompRefContext = SequenceUtil.reverseComplement(referenceContext);
+        for (final ArtifactState s : ArtifactState.values()){
+            revCompPi[s.ordinal()] = pi[s.getRevCompState().ordinal()];
+        }
+        return new ArtifactPrior(revCompRefContext, revCompPi, numExamples, numAltExamples);
     }
 
     public int getNumExamples() { return numExamples; }
@@ -83,35 +68,35 @@ public class ArtifactPrior {
         }
 
         @Override
-        protected void composeLine(final ArtifactPrior hps, final DataLine dataLine) {
-            dataLine.set(ArtifactPriorTableColumn.CONTEXT.toString(), hps.getReferenceContext())
-                    .set(ArtifactPriorTableColumn.REV_COMP.toString(), hps.getReverseComplement())
+        protected void composeLine(final ArtifactPrior artifactPrior, final DataLine dataLine) {
+            dataLine.set(ArtifactPriorTableColumn.CONTEXT.toString(), artifactPrior.getReferenceContext())
+                    .set(ArtifactPriorTableColumn.REV_COMP.toString(), artifactPrior.getRCContext())
                     .set(ArtifactPriorTableColumn.F1R2_A.toString(),
-                            hps.getPi(ArtifactState.F1R2_A, hps.getReferenceContext()))
+                            artifactPrior.getPi(ArtifactState.F1R2_A))
                     .set(ArtifactPriorTableColumn.F1R2_C.toString(),
-                            hps.getPi(ArtifactState.F1R2_C, hps.getReferenceContext()))
+                            artifactPrior.getPi(ArtifactState.F1R2_C))
                     .set(ArtifactPriorTableColumn.F1R2_G.toString(),
-                            hps.getPi(ArtifactState.F1R2_G, hps.getReferenceContext()))
+                            artifactPrior.getPi(ArtifactState.F1R2_G))
                     .set(ArtifactPriorTableColumn.F1R2_T.toString(),
-                            hps.getPi(ArtifactState.F1R2_T, hps.getReferenceContext()))
+                            artifactPrior.getPi(ArtifactState.F1R2_T))
                     .set(ArtifactPriorTableColumn.F2R1_A.toString(),
-                            hps.getPi(ArtifactState.F2R1_A, hps.getReferenceContext()))
+                            artifactPrior.getPi(ArtifactState.F2R1_A))
                     .set(ArtifactPriorTableColumn.F2R1_C.toString(),
-                            hps.getPi(ArtifactState.F2R1_C, hps.getReferenceContext()))
+                            artifactPrior.getPi(ArtifactState.F2R1_C))
                     .set(ArtifactPriorTableColumn.F2R1_G.toString(),
-                            hps.getPi(ArtifactState.F2R1_G, hps.getReferenceContext()))
+                            artifactPrior.getPi(ArtifactState.F2R1_G))
                     .set(ArtifactPriorTableColumn.F2R1_T.toString(),
-                            hps.getPi(ArtifactState.F2R1_T, hps.getReferenceContext()))
+                            artifactPrior.getPi(ArtifactState.F2R1_T))
                     .set(ArtifactPriorTableColumn.HOM_REF.toString(),
-                            hps.getPi(ArtifactState.HOM_REF, hps.getReferenceContext()))
+                            artifactPrior.getPi(ArtifactState.HOM_REF))
                     .set(ArtifactPriorTableColumn.GERMLINE_HET.toString(),
-                            hps.getPi(ArtifactState.GERMLINE_HET, hps.getReferenceContext()))
+                            artifactPrior.getPi(ArtifactState.GERMLINE_HET))
                     .set(ArtifactPriorTableColumn.SOMATIC_HET.toString(),
-                            hps.getPi(ArtifactState.SOMATIC_HET, hps.getReferenceContext()))
+                            artifactPrior.getPi(ArtifactState.SOMATIC_HET))
                     .set(ArtifactPriorTableColumn.HOM_VAR.toString(),
-                            hps.getPi(ArtifactState.HOM_VAR, hps.getReferenceContext()))
-                    .set(ArtifactPriorTableColumn.N.toString(), hps.getNumExamples())
-                    .set(ArtifactPriorTableColumn.N_ALT.toString(), hps.getNumAltExamples());
+                            artifactPrior.getPi(ArtifactState.HOM_VAR))
+                    .set(ArtifactPriorTableColumn.N.toString(), artifactPrior.getNumExamples())
+                    .set(ArtifactPriorTableColumn.N_ALT.toString(), artifactPrior.getNumAltExamples());
         }
     }
 
@@ -144,27 +129,6 @@ public class ArtifactPrior {
             throw new UserException(String.format("Encountered an IO exception while reading from %s.", table), e);
         }
     }
-
-    /** Read artifact prior for a specific context from the table **/
-    public static ArtifactPrior readArtifactPrior(final File table, final String referenceContext) {
-        Utils.validateArg(referenceContext.length() == 3, "reference context must be 3 bases long");
-        final String queryContext = F1R2FilterConstants.CANONICAL_KMERS.contains(referenceContext) ?
-                referenceContext : SequenceUtil.reverseComplement(referenceContext);
-
-        try (ArtifactPriorTableReader reader = new ArtifactPriorTableReader(table)) {
-            // TODO: might be worth revisiting if this is the right approach
-            for (ArtifactPrior hyp : reader){
-                if (hyp.getReferenceContext().equals(queryContext)) {
-                    return hyp;
-                }
-            }
-
-            throw new UserException(String.format("Reference context %s does not exist in the artifact prior table", referenceContext));
-        } catch (IOException e) {
-            throw new UserException(String.format("Encountered an IO exception while reading from %s.", table), e);
-        }
-    }
-
 
     private static class ArtifactPriorTableReader extends TableReader<ArtifactPrior> {
         private ArtifactPriorTableReader(final File table) throws IOException {
@@ -231,26 +195,6 @@ public class ArtifactPrior {
         }
 
         public static final TableColumnCollection COLUMNS = new TableColumnCollection((Object[]) values());
-    }
-
-    /**
-     *
-     * Search the input context (or its reverse complement) from a given list of ArtifactPrior
-     * There are two possible cases:
-     *   Case 1: {@param refContext} is in the set of canonical kmers. So return the prior as is.
-     *   Case 2: {@param refContext} is the reverse complement of the canonical representation. The method will return
-     *     the ArtifactPrior object with the canonical representation.
-     *
-     */
-    public static Optional<ArtifactPrior> searchByContext(List<ArtifactPrior> priors, String refContext){
-        final String queryString = F1R2FilterConstants.CANONICAL_KMERS.contains(refContext) ?
-                refContext : SequenceUtil.reverseComplement(refContext);
-
-        final Optional<ArtifactPrior> hyps = priors.stream()
-                .filter(h -> h.getReferenceContext().equals(queryString))
-                .findFirst();
-
-        return hyps;
     }
 }
 

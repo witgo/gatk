@@ -40,30 +40,30 @@ import static org.broadinstitute.hellbender.tools.walkers.readorientation.F1R2Fi
 public class CollectF1R2Counts extends LocusWalker {
     public static final String ALT_DATA_TABLE_LONG_NAME = "alt-table";
     public static final String ALT_DEPTH1_HISTOGRAM_LONG_NAME = "alt-hist";
-    public static final String REF_SITE_METRICS_LONG_NAME = "ref-table";
+    public static final String REF_SITE_METRICS_LONG_NAME = "ref-hist";
     public static final String MIN_MEDIAN_MQ_LONG_NAME = "median-mq";
     public static final String MIN_BASE_QUALITY_LONG_NAME = "min-bq";
 
     @Argument(fullName = MIN_MEDIAN_MQ_LONG_NAME, doc = "skip sites with median mapping quality below this value", optional = true)
-    private static int MINIMUM_MEDIAN_MQ = 20;
+    private int MINIMUM_MEDIAN_MQ = 30;
 
     @Argument(fullName = MIN_BASE_QUALITY_LONG_NAME, doc = "exclude bases below this quality from pileup", optional = true)
-    private static int MINIMUM_BASE_QUALITY = 20;
+    private int MINIMUM_BASE_QUALITY = 20;
 
     @Argument(fullName = ALT_DATA_TABLE_LONG_NAME, doc = "a tab-separated output table of pileup data over alt sites")
-    private static File altDataTable = null;
+    private File altDataTable = null;
 
     @Argument(fullName = REF_SITE_METRICS_LONG_NAME, doc = "a metrics file with overall summary metrics and reference context-specific depth histograms")
-    private static File refMetricsOutput = null;
+    private File refMetricsOutput = null;
 
     @Argument(fullName = ALT_DEPTH1_HISTOGRAM_LONG_NAME, doc = "a histogram of alt sites with alt depth = 1")
-    private static File altMetricsOutput = null;
+    private File altMetricsOutput = null;
 
-    // For computational efficiency, for each reference context, we build a depth histogram over ref sites
-    private static Map<String, Histogram<Integer>> refSiteHistograms = new HashMap<>(ALL_KMERS.size());
+    // For each reference context, count ref sites in a histogram keyed by depth
+    private Map<String, Histogram<Integer>> refSiteHistograms = new HashMap<>(ALL_KMERS.size());
 
-    // Context -> (Alt, F1R2) -> Histogram
-    private static Map<String, Map<Pair<Nucleotide, ReadOrientation>, Histogram<Integer>>> depthOneAltHistograms = new HashMap<>(ALL_KMERS.size());
+    // Store the total depths of alt sites with alt depth = 1 separately to save memory
+    private DepthOneHistograms depthOneAltHistograms;
 
     private AltSiteRecordTableWriter altTableWriter;
 
@@ -89,23 +89,7 @@ public class CollectF1R2Counts extends LocusWalker {
             refSiteHistograms.put(context, emptyRefHistogram);
         });
 
-        // Initialize for each reference context the (Alt Allele, Artifact Type) -> Histogram map
-        ALL_KMERS.forEach(context -> {
-            depthOneAltHistograms.put(context, new HashMap<>((REGULAR_BASES.size() - 1)*ReadOrientation.values().length));
-
-            for (Nucleotide altAllele : REGULAR_BASES){
-                // Skip e.g. AGT -> AGT because G is not an alt allele
-                if (altAllele == Nucleotide.valueOf(context.substring(MIDDLE_INDEX, MIDDLE_INDEX+1))){
-                    continue;
-                }
-
-                for (ReadOrientation artifactType : ReadOrientation.values()){
-                    depthOneAltHistograms.get(context).put(new Pair<>(altAllele, artifactType),
-                            F1R2FilterUtils.createAltHistogram(context, altAllele, artifactType));
-                }
-            }
-        });
-
+        depthOneAltHistograms = new DepthOneHistograms();
         // Intentionally not use try-with-resources so that the writer stays open outside of the try block
         try {
             altTableWriter = new AltSiteRecordTableWriter(altDataTable);
@@ -119,14 +103,10 @@ public class CollectF1R2Counts extends LocusWalker {
     public void apply(final AlignmentContext alignmentContext, final ReferenceContext referenceContext, final FeatureContext featureContext) {
         final int position = referenceContext.getInterval().getStart();
         final String refContext = referenceContext.getKmerAround(position, F1R2FilterConstants.REF_CONTEXT_PADDING);
-        // final String refContext = Arrays.toString(referenceContext.getKmerAround(position, F1R2FilterConstants.REF_CONTEXT_PADDING));
+        if (refContext == null){
+            return;
+        }
         final Nucleotide refBase = F1R2FilterUtils.getMiddleBase(refContext);
-
-        // START deprecated code
-        referenceContext.setWindow(F1R2FilterConstants.REF_CONTEXT_PADDING, F1R2FilterConstants.REF_CONTEXT_PADDING);
-        final String oldRefContext = new String(referenceContext.getBases());
-        Utils.validate(refContext.equals(oldRefContext), String.format("old ref context %s and new ref context %s disagree", oldRefContext, refContext));
-        // END deprecated code
 
         if (refContext.contains("N") || refContext.length() != F1R2FilterConstants.REFERENCE_CONTEXT_SIZE) {
             return;
@@ -155,8 +135,7 @@ public class CollectF1R2Counts extends LocusWalker {
 
         // If the site is ref, we simply update the coverage histogram
         if (referenceSite) {
-            refSiteHistograms.get(refContext).increment(depth <= F1R2FilterConstants.maxDepth ?
-                    depth : F1R2FilterConstants.maxDepth);
+            refSiteHistograms.get(refContext).increment(Math.min(depth, F1R2FilterConstants.maxDepth));
             return;
         }
 
@@ -170,11 +149,9 @@ public class CollectF1R2Counts extends LocusWalker {
         final int refF1R2 = pileup.getNumberOfElements(pe -> Nucleotide.valueOf(pe.getBase()) == refBase && ReadUtils.isF1R2(pe.getRead()));
         final int altF1R2 = pileup.getNumberOfElements(pe -> Nucleotide.valueOf(pe.getBase()) == altBase && ReadUtils.isF1R2(pe.getRead()));
 
-        // If there's only one alt read at depth > minimumDepthForOptimization, we store the data differently to save space
         if (altCount == 1) {
             final ReadOrientation type = altF1R2 == 1 ? F1R2 : F2R1;
-            depthOneAltHistograms.get(refContext).get(new Pair<>(altBase, type))
-                    .increment(depth <= F1R2FilterConstants.maxDepth ? depth : F1R2FilterConstants.maxDepth);
+            depthOneAltHistograms.increment(refContext, altBase, type, depth);
             return;
         }
 
@@ -190,7 +167,7 @@ public class CollectF1R2Counts extends LocusWalker {
         refSiteHistograms.values().forEach(h -> refMetricsFile.addHistogram(h));
         refMetricsFile.write(refMetricsOutput);
 
-        depthOneAltHistograms.values().forEach(hs -> hs.values().forEach(h -> altMetricsFile.addHistogram(h)));
+        depthOneAltHistograms.getHistograms().forEach(h -> altMetricsFile.addHistogram(h));
         altMetricsFile.write(altMetricsOutput);
 
         return "SUCCESS";
@@ -211,17 +188,17 @@ public class CollectF1R2Counts extends LocusWalker {
      * Use a series of heuristics to detect a bad pileup.
      */
     private boolean isPileupGood(final ReadPileup pileup, final ReferenceContext referenceContext){
-        // This case should not happen, as AlignmentContext should come filtered, but it does happen once in a while
-
         final int[] baseCounts = pileup.getBaseCounts();
         final int depth = (int) MathUtils.sum(baseCounts);
 
-        // If observe any bases that are neither ref nor alt, the site is no good so filter
+        // If we observe any bases that are neither ref nor alt, the site is no good so filter
         final long numAlleles = Arrays.stream(baseCounts).filter(i -> i > 0).count();
 
         List<Integer> mappingQualities = Ints.asList(pileup.getMappingQuals());
 
-        boolean isIndel = pileup.getNumberOfElements(pe -> pe.isDeletion() || pe.isAfterInsertion() || pe.isBeforeDeletionStart()) > 0;
+        // If more than 1% of the reads is indel then consider this site an indel
+        final int indelThreshold = depth/100;
+        boolean isIndel = pileup.getNumberOfElements(pe -> pe.isDeletion() || pe.isAfterInsertion() || pe.isBeforeDeletionStart()) > indelThreshold;
 
         // If depth (the sum of base counts) is 0 but the pileup is non-empty, that means all the reads
         // have deleted bases at this particular locus
