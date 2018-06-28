@@ -184,14 +184,14 @@ public class LearnReadOrientationModel extends CommandLineProgram {
             final Nucleotide altAlleleRevComp = Nucleotide.valueOf(SequenceUtil.reverseComplement(altAllele.toString()));
 
             for (ReadOrientation orientation : ReadOrientation.values()) {
-                final ReadOrientation oppositeType = orientation == ReadOrientation.F1R2 ? ReadOrientation.F2R1 : ReadOrientation.F1R2;
+                final ReadOrientation otherOrientation = ReadOrientation.getOtherOrientation(orientation);
                 final Histogram<Integer> altHistogram = altHistograms.stream()
                         .filter(h -> h.getValueLabel().equals(F1R2FilterUtils.tripletToLabel(refContext, altAllele, orientation)))
                         .findFirst().orElseGet(() -> F1R2FilterUtils.createAltHistogram(refContext, altAllele, orientation));
 
                 final Histogram<Integer> altHistogramRevComp = altHistogramsRevComp.stream()
-                        .filter(h -> h.getValueLabel().equals(F1R2FilterUtils.tripletToLabel(reverseComplement, altAlleleRevComp, oppositeType)))
-                        .findFirst().orElseGet(() -> F1R2FilterUtils.createAltHistogram(reverseComplement, altAlleleRevComp, oppositeType));
+                        .filter(h -> h.getValueLabel().equals(F1R2FilterUtils.tripletToLabel(reverseComplement, altAlleleRevComp, otherOrientation)))
+                        .findFirst().orElseGet(() -> F1R2FilterUtils.createAltHistogram(reverseComplement, altAlleleRevComp, otherOrientation));
 
                 final Histogram<Integer> combinedHistogram = F1R2FilterUtils.createAltHistogram(refContext, altAllele, orientation);
 
