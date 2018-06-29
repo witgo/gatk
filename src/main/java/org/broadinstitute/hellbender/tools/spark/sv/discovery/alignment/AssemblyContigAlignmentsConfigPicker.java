@@ -557,13 +557,13 @@ public class AssemblyContigAlignmentsConfigPicker {
         final List<GoodAndBadMappings> bestConfigurations = nameSeqAndBestConfigurationsOfOneAssemblyContig._2;
         if (bestConfigurations.size() > 1) { // more than one best configuration
             return bestConfigurations.stream()
-                    .map(mappings -> splitGaps(mappings, true))
+                    .map(mappings -> splitGaps(mappings, false))
                     .map(mappings -> removeNonUniqueMappings(mappings, ALIGNMENT_MQ_THRESHOLD, ALIGNMENT_LOW_READ_UNIQUENESS_THRESHOLD))
                     .map(mappings -> makeContig(contigName, contigSeq, mappings, true))
                     .sorted(getConfigurationComparator())
                     .iterator();
         } else {
-            final GoodAndBadMappings intermediate = splitGaps(bestConfigurations.get(0), true);
+            final GoodAndBadMappings intermediate = splitGaps(bestConfigurations.get(0), false);
             final GoodAndBadMappings result = removeNonUniqueMappings(intermediate, ALIGNMENT_MQ_THRESHOLD, ALIGNMENT_LOW_READ_UNIQUENESS_THRESHOLD);
             return Collections.singletonList(makeContig(contigName, contigSeq, result, false)).iterator();
         }
