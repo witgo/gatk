@@ -287,8 +287,10 @@ public class Mutect2FilteringEngine {
         }
     }
 
-    public void applyFilters(final M2FiltersArgumentCollection MTFAC, final VariantContext vc, final VariantContextBuilder vcb) {
+    public FilterResult calculateFilters(final M2FiltersArgumentCollection MTFAC, final VariantContext vc,
+                                         final VariantContextBuilder vcb, final Optional<Mutect2FilterStats> filterStats) {
         vcb.filters(new HashSet<>());
+        final FilterResult filterResult = new FilterResult();
         applyInsufficientEvidenceFilter(MTFAC, vc, vcb);
         applyClusteredEventFilter(vc, vcb);
         applyDuplicatedAltReadFilter(MTFAC, vc, vcb);

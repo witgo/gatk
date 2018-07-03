@@ -118,7 +118,7 @@ public final class FilterMutectCalls extends TwoPassVariantWalker {
     @Override
     public void firstPassApply(final VariantContext vc, final ReadsContext readsContext, final ReferenceContext refContext, final FeatureContext fc) {
         final VariantContextBuilder vcb = new VariantContextBuilder(vc);
-        filteringEngine.applyFilters(MTFAC, vc, vcb);
+        final FilterResult filterResult = filteringEngine.calculateFilters(MTFAC, vc, vcb);
 
         if (vcb.make().getFilters().isEmpty()){
             final double posterior = GATKProtectedVariantContextUtils.getAttributeAsDouble(vc.getGenotype(getTumorSampleName()), GATKVCFConstants.ROF_POSTERIOR_KEY, 0.0 );
@@ -135,7 +135,7 @@ public final class FilterMutectCalls extends TwoPassVariantWalker {
     @Override
     public void secondPassApply(final VariantContext vc, final ReadsContext readsContext, final ReferenceContext refContext, final FeatureContext fc) {
         final VariantContextBuilder vcb = new VariantContextBuilder(vc);
-        filteringEngine.applyFilters(MTFAC, vc, vcb);
+        filteringEngine.calculateFilters(MTFAC, vc, vcb);
 
         // Apply the second pass filters
         filteringEngine.applySecondPassFilters(MTFAC, vc, vcb, stats);
