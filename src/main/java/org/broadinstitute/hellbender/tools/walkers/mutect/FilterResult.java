@@ -1,16 +1,35 @@
 package org.broadinstitute.hellbender.tools.walkers.mutect;
 
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 public class FilterResult {
-    private List<String> filtersApplied = new ArrayList<>();
+    private Set<String> filtersApplied = new HashSet<>();
     private Map<String, Object> newAnnotations = new HashMap<>();
 
-    public void addFilters(String filter){
+    private double readOrientationPosterior;
+
+    public void setReadOrientationPosterior(final double posterior){
+        readOrientationPosterior = posterior;
     }
 
+    public double getReadOrientationPosterior() {
+        return readOrientationPosterior;
+    }
+
+    public void addFilter(final String filterName) {
+        filtersApplied.add(filterName);
+    }
+
+    public void addAttribute(final String attributeName, final Object value){
+        newAnnotations.put(attributeName, value);
+    }
+
+    public Set<String> getFilters(){
+        return filtersApplied;
+    }
+
+    public Map<String, Object> getAttributes(){
+        return newAnnotations;
+    }
 }
 

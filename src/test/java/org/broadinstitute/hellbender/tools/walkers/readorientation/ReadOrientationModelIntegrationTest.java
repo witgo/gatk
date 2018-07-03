@@ -75,7 +75,7 @@ public class ReadOrientationModelIntegrationTest extends CommandLineProgramTest 
         final File unfilteredVcf = GATKBaseTest.createTempFile("unfiltered", ".vcf");
         final File filteredVcf = GATKBaseTest.createTempFile("filtered", ".vcf");
         final File bamout = GATKBaseTest.createTempFile("SM-CEMAH", ".bam");
-        final File filterStats = GATKBaseTest.createTempFile("Mutect2FilterStats", ".txt");
+        final File filterStats = GATKBaseTest.createTempFile("FilterStats", ".txt");
 
         new Main().instanceMain(makeCommandLineArgs(
                 Arrays.asList(
