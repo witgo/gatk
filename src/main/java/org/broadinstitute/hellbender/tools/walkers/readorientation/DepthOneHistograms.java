@@ -15,8 +15,11 @@ import java.util.stream.Collectors;
  */
 public class DepthOneHistograms {
     private final Map<String, Map<Pair<Nucleotide, ReadOrientation>, Histogram<Integer>>> map;
+    private final int maxDepth;
 
-    public DepthOneHistograms() {
+    public DepthOneHistograms(final int maxDepth) {
+        this.maxDepth = maxDepth;
+
         map = new HashMap<>(F1R2FilterConstants.NUM_KMERS);
 
         // Initialize, for each reference context, the (Alt Allele, Artifact Type) -> Histogram map
@@ -32,7 +35,7 @@ public class DepthOneHistograms {
 
                 for (ReadOrientation artifactType : ReadOrientation.values()) {
                     map.get(context).put(new ImmutablePair(altAllele, artifactType),
-                            F1R2FilterUtils.createAltHistogram(context, altAllele, artifactType));
+                            F1R2FilterUtils.createAltHistogram(context, altAllele, artifactType, maxDepth));
                 }
             }
         });
@@ -45,7 +48,7 @@ public class DepthOneHistograms {
 
     public void increment(final String referenceContext, final Nucleotide altAllele,
                           final ReadOrientation orientation, final int depth) {
-        final int cappedDepth = Math.min(depth, F1R2FilterConstants.maxDepth);
+        final int cappedDepth = Math.min(depth, maxDepth);
         map.get(referenceContext).get(new ImmutablePair<>(altAllele, orientation)).increment(cappedDepth);
     }
 

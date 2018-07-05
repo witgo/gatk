@@ -57,7 +57,7 @@ public class ReadOrientationModelIntegrationTest extends CommandLineProgramTest 
         int lineCount = (int) Files.lines(Paths.get(refMetrics.getAbsolutePath())).filter(l -> l.matches("^[0-9].+")).count();
 
         // Ensure that we print every bin, even when the count is 0
-        Assert.assertEquals(lineCount, F1R2FilterConstants.maxDepth);
+        Assert.assertEquals(lineCount, F1R2FilterConstants.DEFAULT_MAX_DEPTH);
 
         // Run the prior probabilities of artifact
         final File priorTable = createTempFile("prior", ".tsv");
@@ -69,7 +69,7 @@ public class ReadOrientationModelIntegrationTest extends CommandLineProgramTest 
                     "--" + StandardArgumentDefinitions.OUTPUT_LONG_NAME, priorTable.getAbsolutePath()),
                 LearnReadOrientationModel.class.getSimpleName()));
 
-        final ArtifactPriors artifactPriors = ArtifactPriors.readArtifactPriors(priorTable);
+        final ArtifactPriorCollection artifactPriorCollection = ArtifactPriorCollection.readArtifactPriors(priorTable);
 
         // Run Mutect 2
         final File unfilteredVcf = GATKBaseTest.createTempFile("unfiltered", ".vcf");
@@ -92,7 +92,7 @@ public class ReadOrientationModelIntegrationTest extends CommandLineProgramTest 
                         "-V", unfilteredVcf.getAbsolutePath(),
                         "-R", b37_reference_20_21,
                         "-O", filteredVcf.getAbsolutePath(),
-                        "--" + M2FiltersArgumentCollection.FALSE_POSITIVE_RATE_LONG_NAME, "0.04",
+                        "--" + M2FiltersArgumentCollection.ORIENTATION_BIAS_FDR_LONG_NAME, "0.04",
                         "--" + M2FiltersArgumentCollection.FILTERING_STATS_LONG_NAME, filterStats.getAbsolutePath()),
                 FilterMutectCalls.class.getSimpleName()));
 
@@ -119,7 +119,7 @@ public class ReadOrientationModelIntegrationTest extends CommandLineProgramTest 
             final double prior = GATKProtectedVariantContextUtils.getAttributeAsDouble(variant.get().getGenotype(0), ROF_PRIOR_KEY, -1.0);
             final String refBases = variant.get().getAttributeAsString(REFERENCE_BASES_KEY, "");
             final String refContext = ReferenceBases.getNMiddleBases(refBases, F1R2FilterConstants.REFERENCE_CONTEXT_SIZE);
-            final ArtifactPrior ap = artifactPriors.get(refContext).get();
+            final ArtifactPrior ap = artifactPriorCollection.get(refContext).get();
 
             Assert.assertEquals(prior, ap.getPi(expectedSourceOfPrior), 1e-3);
 

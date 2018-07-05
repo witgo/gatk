@@ -7,15 +7,16 @@ import org.broadinstitute.hellbender.utils.Nucleotide;
 import org.broadinstitute.hellbender.utils.Utils;
 
 public class F1R2FilterUtils {
-    static Histogram<Integer> createAltHistogram(final String refContext, final Nucleotide altAllele, final ReadOrientation type){
+    static Histogram<Integer> createAltHistogram(final String refContext, final Nucleotide altAllele, final ReadOrientation type,
+                                                 final int maxDepth){
         final Histogram<Integer> h = new Histogram<>(F1R2FilterConstants.binName, tripletToLabel(refContext, altAllele, type));
-        h.prefillBins(F1R2FilterConstants.emptyBins);
+        h.prefillBins(F1R2FilterConstants.getEmptyBins(maxDepth));
         return h;
     }
 
-    static Histogram<Integer> createRefHistogram(final String refContext){
+    static Histogram<Integer> createRefHistogram(final String refContext, final int maxDepth){
         final Histogram<Integer> h = new Histogram<>(F1R2FilterConstants.binName, refContext);
-        h.prefillBins(F1R2FilterConstants.emptyBins);
+        h.prefillBins(F1R2FilterConstants.getEmptyBins(maxDepth));
         return h;
     }
 

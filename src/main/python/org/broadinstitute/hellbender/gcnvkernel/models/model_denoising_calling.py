@@ -927,7 +927,7 @@ class HHMMClassAndCopyNumberBasicCaller:
 
         - Given q(c_s), the emission probability of each copy number class (tau) is determined
           (see _get_update_log_class_emission_tk_theano_func). The class prior and transition probabilities
-          are fixed artifactPrior. Therefore, q(tau) can be updated immediately using a single run
+          are fixed hyperparameters. Therefore, q(tau) can be updated immediately using a single run
           of forward-backward algorithm (see _update_class_log_posterior).
     """
     CopyNumberForwardBackwardResult = collections.namedtuple(

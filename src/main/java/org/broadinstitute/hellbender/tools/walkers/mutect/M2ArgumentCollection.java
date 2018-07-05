@@ -33,9 +33,8 @@ public class M2ArgumentCollection extends AssemblyBasedCallerArgumentCollection 
     public static final String NORMAL_LOD_LONG_NAME = "normal-lod";
     public static final String MAX_MNP_DISTANCE_LONG_NAME = "max-mnp-distance";
     public static final String MAX_MNP_DISTANCE_SHORT_NAME = "mnp-dist";
-    public static final String ARTIFACT_PRIOR_TABLE_NAME = "prior";
-
-
+    public static final String ARTIFACT_PRIOR_TABLE_NAME = "orientation-bias-artifact-priors";
+    public static final String ARTIFACT_PRIOR_TABLE_SHORT_NAME = "ob-priors";
 
     public static final double DEFAULT_AF_FOR_TUMOR_ONLY_CALLING = 5e-8;
     public static final double DEFAULT_AF_FOR_TUMOR_NORMAL_CALLING = 1e-5;

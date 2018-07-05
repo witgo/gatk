@@ -9,10 +9,10 @@ import java.util.*;
 /**
  * Container class for {@link ArtifactPrior} objects. The container will always have {@link F1R2FilterConstants.NUM_KMERS} objects
  */
-public class ArtifactPriors {
+public class ArtifactPriorCollection {
     final private Map<String, ArtifactPrior> map = new HashMap<>(F1R2FilterConstants.NUM_KMERS);
 
-    public ArtifactPriors(){
+    public ArtifactPriorCollection(){
         for (final String kmer : F1R2FilterConstants.ALL_KMERS){
             map.put(kmer, new ArtifactPrior(kmer, new double[F1R2FilterConstants.NUM_STATES], 0, 0));
         }
@@ -47,9 +47,9 @@ public class ArtifactPriors {
         ArtifactPrior.writeArtifactPriors(new ArrayList<>(map.values()), output);
     }
 
-    public static ArtifactPriors readArtifactPriors(final File input){
+    public static ArtifactPriorCollection readArtifactPriors(final File input){
         final List<ArtifactPrior> priors = ArtifactPrior.readArtifactPriors(input);
-        final ArtifactPriors artifactPriors = new ArtifactPriors();
+        final ArtifactPriorCollection artifactPriorCollection = new ArtifactPriorCollection();
 
         /**
          * We iterate through the canonical kmers instead of all reference contexts because otherwise we would
@@ -59,9 +59,9 @@ public class ArtifactPriors {
         for (final String refContext : F1R2FilterConstants.CANONICAL_KMERS){
             final Optional<ArtifactPrior> ap = priors.stream().filter(a -> a.getReferenceContext().equals(refContext)).findAny();
             Utils.validate(ap.isPresent(), "ArtifactPrior object isn't present for reference context " + refContext + "in file " + input);
-            artifactPriors.set(ap.get());
+            artifactPriorCollection.set(ap.get());
         }
-        return artifactPriors;
+        return artifactPriorCollection;
     }
 
     public int getNumUniqueContexts(){

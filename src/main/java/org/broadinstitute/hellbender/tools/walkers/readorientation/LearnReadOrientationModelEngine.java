@@ -6,7 +6,6 @@ import org.apache.commons.lang3.tuple.Triple;
 import org.apache.commons.math3.util.MathArrays;
 import org.apache.commons.math3.util.Pair;
 import org.apache.logging.log4j.Logger;
-import org.broadinstitute.hellbender.utils.GATKProtectedMathUtils;
 import org.broadinstitute.hellbender.utils.MathUtils;
 import org.broadinstitute.hellbender.utils.Nucleotide;
 import org.broadinstitute.hellbender.utils.Utils;
@@ -36,7 +35,7 @@ public class LearnReadOrientationModelEngine {
 
     /**
      * N by K matrix of posterior probabilities of latent variable z, where N is the number of alt sites,
-     * evaluated at the current estimates of the mixture weights artifactPriors
+     * evaluated at the current estimates of the mixture weights artifactPriorCollection
      */
     private final double[][] altResponsibilities;
 
@@ -73,13 +72,16 @@ public class LearnReadOrientationModelEngine {
 
     private final Logger logger;
 
+    private int maxDepth;
+
 
     /**
      * Contract: the reference contexts must be combined with its reverse complements prior to instantiating this class
      */
     public LearnReadOrientationModelEngine(final Histogram<Integer> refHistogram, final List<Histogram<Integer>> altDepthOneHistograms,
                                            final List<AltSiteRecord> altDesignMatrixForContext,
-                                           final double convergenceThreshold, final int maxEMIterations, final Logger logger) {
+                                           final double convergenceThreshold, final int maxEMIterations,
+                                           final int maxDepth, final Logger logger) {
         Utils.nonNull(refHistogram);
         Utils.nonNull(altDepthOneHistograms);
         Utils.nonNull(altDesignMatrixForContext);
@@ -99,7 +101,7 @@ public class LearnReadOrientationModelEngine {
 
         // Responsibilities of ref sites with equal depth are the same so we can compute it for each depth and
         // multiply by the number of counts for that depth
-        this.refResponsibilities = new double[F1R2FilterConstants.maxDepth][F1R2FilterConstants.NUM_STATES];
+        this.refResponsibilities = new double[maxDepth][F1R2FilterConstants.NUM_STATES];
 
         this.altResponsibilities = new double[altDesignMatrix.size()][F1R2FilterConstants.NUM_STATES];
 
@@ -108,6 +110,7 @@ public class LearnReadOrientationModelEngine {
         this.refAllele = F1R2FilterUtils.getMiddleBase(referenceContext);
         this.convergenceThreshold = convergenceThreshold;
         this.maxEMIterations = maxEMIterations;
+        this.maxDepth = maxDepth;
         this.logger = logger;
     }
 
@@ -124,7 +127,7 @@ public class LearnReadOrientationModelEngine {
             // Responsibilities are updated by side effect to save space
             takeEstep(statePrior);
             statePrior = takeMstep();
-            Utils.validate(Math.abs(MathUtils.sum(statePrior) - 1.0) < EPSILON, "artifactPriors must be normalized");
+            Utils.validate(Math.abs(MathUtils.sum(statePrior) - 1.0) < EPSILON, "artifactPriorCollection must be normalized");
 
             // TODO: make sure EM increases the likelihood
             // newLikelihood >= oldLikelihood : "M step must increase the likelihood";
@@ -145,12 +148,12 @@ public class LearnReadOrientationModelEngine {
                     referenceContext, numRefExamples, numAltExamples, numIterations));
         }
 
-        logger.info("Changes in L2 distance of artifactPriors between iterations: " + ArtifactPrior.doubleArrayToString(l2distancesOfParameters));
+        logger.info("Changes in L2 distance of artifactPriorCollection between iterations: " + ArtifactPrior.doubleArrayToString(l2distancesOfParameters));
         return new ArtifactPrior(referenceContext, statePrior, numExamples, numAltExamples);
     }
 
     /**
-     * Given the current estimates of @{link artifactPriors}, compute the responsibilities, which is
+     * Given the current estimates of @{link artifactPriorCollection}, compute the responsibilities, which is
      * the posterior probabilities of artifact states, for each example
      **/
     private void takeEstep(double[] artifactPriors) {
@@ -160,7 +163,7 @@ public class LearnReadOrientationModelEngine {
          *
          * Ref sites with the same depth have the same alt and alt F1R2 depths (i.e. zero) so avoid repeated computations
          */
-        for (int i = 0; i < F1R2FilterConstants.maxDepth; i++) {
+        for (int i = 0; i < maxDepth; i++) {
             final int depth = i + 1;
             final double[] log10UnnormalizedResponsibilities = computeLog10Responsibilities(refAllele, refAllele, 0, 0, depth, artifactPriors);
             refResponsibilities[i] = MathUtils.normalizeFromLog10ToLinearSpace(log10UnnormalizedResponsibilities);
@@ -186,7 +189,7 @@ public class LearnReadOrientationModelEngine {
         }
 
         // Compute the responsibilities of sites of ref sites (alt depth = 0) and alt sites with depth=1
-        for (int i = 0; i < F1R2FilterConstants.maxDepth; i++){
+        for (int i = 0; i < maxDepth; i++){
             final int depth = i+1;
             for (Nucleotide altAllele : Nucleotide.REGULAR_BASES){
                 for (ReadOrientation orientation : ReadOrientation.values()){
@@ -213,7 +216,7 @@ public class LearnReadOrientationModelEngine {
      */
     private double[] takeMstep() {
         // First we compute the effective counts of each state, N_k in the docs. We do this separately over alt and ref sites
-        final double[] effectiveAltCountsFromDesignMatrix = GATKProtectedMathUtils.sumArrayFunction(0, altDesignMatrix.size(), n -> altResponsibilities[n]);
+        final double[] effectiveAltCountsFromDesignMatrix = MathUtils.sumArrayFunction(0, altDesignMatrix.size(), n -> altResponsibilities[n]);
         double[] effectiveAltCountsFromHistograms = new double[F1R2FilterConstants.NUM_STATES];
 
         for (Histogram<Integer> histogram : altDepthOneHistograms){
@@ -222,7 +225,7 @@ public class LearnReadOrientationModelEngine {
             final ReadOrientation orientation = triplet.getRight();
 
 
-            final double[] effectiveAltCountsFromHistogram = GATKProtectedMathUtils.sumArrayFunction(0, F1R2FilterConstants.maxDepth,
+            final double[] effectiveAltCountsFromHistogram = MathUtils.sumArrayFunction(0, maxDepth,
                     i -> MathArrays.scale(histogram.get(i + 1).getValue(), responsibilitiesOfAltDepth1Sites.get(createKey(i+1, altAllele, orientation))));
             effectiveAltCountsFromHistograms = MathArrays.ebeAdd(effectiveAltCountsFromHistograms, effectiveAltCountsFromHistogram);
         }
@@ -235,7 +238,7 @@ public class LearnReadOrientationModelEngine {
         // TODO: at some depth, the responsibilities must be 1 for z = HOM_REF and 0 for everything else, we could probably save some time there
         // Over ref sites, we have a histogram of sites over different depths. At each depth we simply multiply the responsibilities by the number of sites,
         // and sum them over all of depths. Because we cut off the depth histogram at {@code MAX_COVERAGE}, we underestimate the ref effective counts by design
-        final double[] effectiveRefCounts = GATKProtectedMathUtils.sumArrayFunction(0, F1R2FilterConstants.maxDepth,
+        final double[] effectiveRefCounts = MathUtils.sumArrayFunction(0, maxDepth,
                 i -> MathArrays.scale(refHistogram.get(i + 1).getValue(), refResponsibilities[i]));
 
         Utils.validate(Math.abs(MathUtils.sum(effectiveRefCounts) - numRefExamples) < EPSILON,
@@ -285,7 +288,7 @@ public class LearnReadOrientationModelEngine {
     private static double computePosterior(final int altDepth, final int altF1R2Depth, final int depth,
                                            final double statePrior, final Pair<Double, Double> afPseudoCounts,
                                            final Pair<Double, Double> f1r2PseudoCounts){
-        Utils.validateArg(MathUtils.isAProbability(statePrior), String.format("artifactPriors must be a probability but got %f", statePrior));
+        Utils.validateArg(MathUtils.isAProbability(statePrior), String.format("artifactPriorCollection must be a probability but got %f", statePrior));
         Utils.validateArg(afPseudoCounts.getFirst() > 0 && afPseudoCounts.getSecond() > 0,
                 String.format("pseudocounts for allele fraction must be greater than 0 but got %f and %f",
                         afPseudoCounts.getFirst(), afPseudoCounts.getSecond()));

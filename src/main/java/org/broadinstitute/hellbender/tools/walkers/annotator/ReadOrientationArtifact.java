@@ -12,7 +12,6 @@ import org.broadinstitute.hellbender.utils.MathUtils;
 import org.broadinstitute.hellbender.utils.Nucleotide;
 import org.broadinstitute.hellbender.utils.Utils;
 import org.broadinstitute.hellbender.utils.genotyper.ReadLikelihoods;
-import org.broadinstitute.hellbender.utils.locusiterator.AlignmentStateMachine;
 import org.broadinstitute.hellbender.utils.read.GATKRead;
 import org.broadinstitute.hellbender.utils.read.ReadUtils;
 import org.broadinstitute.hellbender.utils.variant.GATKVCFConstants;
@@ -27,14 +26,14 @@ import static org.broadinstitute.hellbender.tools.walkers.readorientation.F1R2Fi
  * Created by tsato on 10/20/17.
  */
 public class ReadOrientationArtifact extends GenotypeAnnotation implements NonStandardMutectAnnotation {
-    private ArtifactPriors artifactPriors;
+    private ArtifactPriorCollection artifactPriorCollection;
     private int minimumBaseQuality = 20;
 
     // Barclay requires that each annotation define a constructor that takes an argument
     public ReadOrientationArtifact(){ }
 
     public ReadOrientationArtifact(final File artifactPriorTable){
-        artifactPriors = ArtifactPriors.readArtifactPriors(artifactPriorTable);
+        artifactPriorCollection = ArtifactPriorCollection.readArtifactPriors(artifactPriorTable);
     }
 
     @Override
@@ -59,7 +58,7 @@ public class ReadOrientationArtifact extends GenotypeAnnotation implements NonSt
         Utils.nonNull(gb);
         Utils.nonNull(vc);
         Utils.nonNull(likelihoods);
-        Utils.nonNull(artifactPriors);
+        Utils.nonNull(artifactPriorCollection);
 
         // As of June 2018, genotype is hom ref iff we have the normal sample, but this may change in the future
         if (g.isHomRef() || !vc.isSNP() ){
@@ -104,15 +103,9 @@ public class ReadOrientationArtifact extends GenotypeAnnotation implements NonSt
                 continue;
             }
 
-            // Use AlignmentStateMachine to find the base quality of the base at the position
-            // TODO: perhaps using the read likelihood is cheaper and serves the same purpose
-            final AlignmentStateMachine asm = new AlignmentStateMachine(read);
-            while ( asm.stepForwardOnGenome() != null && asm.getGenomePosition() < vc.getStart()) { }
-
-            final int readOffset = asm.getReadOffset();
-
-            // Throw away bases that is below the minimum quality
-            if (asm.getGenomePosition() == vc.getStart() && read.getBaseQuality(readOffset) < minimumBaseQuality){
+            // Throw away bases that is below the desired minimum quality
+            final OptionalInt baseQuality = BaseQuality.findBaseQuality(read, vc);
+            if (! baseQuality.isPresent() || baseQuality.getAsInt() < minimumBaseQuality){
                 continue;
             }
 
@@ -126,7 +119,7 @@ public class ReadOrientationArtifact extends GenotypeAnnotation implements NonSt
             }
         }
 
-        final Optional<ArtifactPrior> artifactPrior = artifactPriors.get(refContext);
+        final Optional<ArtifactPrior> artifactPrior = artifactPriorCollection.get(refContext);
 
         if (! artifactPrior.isPresent()){
             return;

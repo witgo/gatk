@@ -217,9 +217,9 @@ public class Mutect2FilteringEngine {
     private void applyStrandArtifactFilter(final M2FiltersArgumentCollection MTFAC, final VariantContext vc, final FilterResult filterResult) {
         Genotype tumorGenotype = vc.getGenotype(tumorSample);
         final double[] posteriorProbabilities = GATKProtectedVariantContextUtils.getAttributeAsDoubleArray(
-                tumorGenotype, (GATKVCFConstants.POSTERIOR_PROBABILITIES_KEY), () -> null, -1);
+                tumorGenotype, (GATKVCFConstants.STRAND_ARTIFACT_POSTERIOR_KEY), () -> null, -1);
         final double[] mapAlleleFractionEstimates = GATKProtectedVariantContextUtils.getAttributeAsDoubleArray(
-                tumorGenotype, (GATKVCFConstants.MAP_ALLELE_FRACTIONS_KEY), () -> null, -1);
+                tumorGenotype, (GATKVCFConstants.STRAND_ARTIFACT_AF_KEY), () -> null, -1);
 
         if (posteriorProbabilities == null || mapAlleleFractionEstimates == null){
             return;
@@ -267,23 +267,22 @@ public class Mutect2FilteringEngine {
 
         final Genotype tumorGenotype = vc.getGenotype(tumorSample);
 
-        if (! tumorGenotype.hasExtendedAttribute(GATKVCFConstants.ROF_POSTERIOR_KEY) ||
-                ! tumorGenotype.hasExtendedAttribute(GATKVCFConstants.ROF_PRIOR_KEY)){
+        if (! tumorGenotype.hasExtendedAttribute(GATKVCFConstants.ROF_POSTERIOR_KEY) || ! tumorGenotype.hasExtendedAttribute(GATKVCFConstants.ROF_PRIOR_KEY)){
             return;
         }
 
-        final double artifactProbability = GATKProtectedVariantContextUtils.getAttributeAsDouble(tumorGenotype, GATKVCFConstants.ROF_POSTERIOR_KEY, -1.0);
+        final double artifactPosterior = GATKProtectedVariantContextUtils.getAttributeAsDouble(tumorGenotype, GATKVCFConstants.ROF_POSTERIOR_KEY, -1.0);
 
         if (! filterSummary.isPresent()) {
             // During first pass we simply collect the posterior artifact probabilities
-            filterResult.setReadOrientationPosterior(artifactProbability);
+            filterResult.setReadOrientationPosterior(artifactPosterior);
             return;
         } else {
             final ReadOrientation artifactType = ReadOrientation.valueOf(GATKProtectedVariantContextUtils.getAttributeAsString(
                     tumorGenotype, GATKVCFConstants.ROF_TYPE_KEY, null));
             final double threshold = filterSummary.get().getFilterStats(GATKVCFConstants.F1R2_ARTIFACT_FILTER_NAME).getThreshold();
 
-            if (artifactProbability > threshold){
+            if (artifactPosterior > threshold){
                 filterResult.addFilter(artifactType == ReadOrientation.F1R2 ?
                         GATKVCFConstants.F1R2_ARTIFACT_FILTER_NAME : GATKVCFConstants.F2R1_ARTIFACT_FILTER_NAME);
             }
@@ -308,7 +307,7 @@ public class Mutect2FilteringEngine {
         applyMedianFragmentLengthDifferenceFilter(MTFAC, vc, filterResult);
         applyReadPositionFilter(MTFAC, vc, filterResult);
 
-        // The following filters use information gathered in the first pass
+        // The following filters use the information gathered during the first pass
         applyReadOrientationFilter(vc, filterResult, filterStats);
         return filterResult;
     }
@@ -322,30 +321,29 @@ public class Mutect2FilteringEngine {
      * Compute the filtering threshold that ensures that the false positive rate among the resulting pass variants
      * will not exceed the requested false positive rate
      *
-     * @param posteriors A list of posterior probabilities
+     * @param posteriors A list of posterior probabilities, which gets sorted
      * @param requestedFPR We set the filtering threshold such that the FPR doesn't exceed this value
      * @return
      */
     public Mutect2FilterSummary.FilterStats calculateThresholdForReadOrientationFilter(final double[] posteriors, final double requestedFPR){
-        final double NO_FILTERING_THRESHOLD = 1.0;
-        final double FILTER_EVERYTHING_THRESHOLD = 0.0;
+        final double thresholdForFilteringNone = 1.0;
+        final double thresholdForFilteringAll = 0.0;
 
-        final double[] sortedPosteriors = Arrays.copyOf(posteriors, posteriors.length);
-        Arrays.sort(sortedPosteriors);
+        Arrays.sort(posteriors);
 
-        final int numPassingVariants = sortedPosteriors.length;
+        final int numPassingVariants = posteriors.length;
         double cumulativeExpectedFPs = 0.0;
 
         for (int i = 0; i < numPassingVariants; i++){
-            final double posterior = sortedPosteriors[i];
+            final double posterior = posteriors[i];
 
             // One can show that the cumulative error rate is monotonically increasing in i
             final double expectedFPR = (cumulativeExpectedFPs + posterior) / (i + 1);
             if (expectedFPR > requestedFPR){
                 return i > 0 ?
-                        new Mutect2FilterSummary.FilterStats(GATKVCFConstants.F1R2_ARTIFACT_FILTER_NAME, sortedPosteriors[i-1],
+                        new Mutect2FilterSummary.FilterStats(GATKVCFConstants.F1R2_ARTIFACT_FILTER_NAME, posteriors[i-1],
                                 cumulativeExpectedFPs, i-1, cumulativeExpectedFPs/i, requestedFPR) :
-                        new Mutect2FilterSummary.FilterStats(GATKVCFConstants.F1R2_ARTIFACT_FILTER_NAME, FILTER_EVERYTHING_THRESHOLD,
+                        new Mutect2FilterSummary.FilterStats(GATKVCFConstants.F1R2_ARTIFACT_FILTER_NAME, thresholdForFilteringAll,
                                 0.0, 0, 0.0, requestedFPR);
             }
 
@@ -353,7 +351,7 @@ public class Mutect2FilteringEngine {
         }
 
         // If the expected FP rate never exceeded the max tolerable value, then we can let everything pass
-        return new Mutect2FilterSummary.FilterStats(GATKVCFConstants.F1R2_ARTIFACT_FILTER_NAME, NO_FILTERING_THRESHOLD,
+        return new Mutect2FilterSummary.FilterStats(GATKVCFConstants.F1R2_ARTIFACT_FILTER_NAME, thresholdForFilteringNone,
                 cumulativeExpectedFPs, numPassingVariants, cumulativeExpectedFPs/numPassingVariants, requestedFPR);
     }
 

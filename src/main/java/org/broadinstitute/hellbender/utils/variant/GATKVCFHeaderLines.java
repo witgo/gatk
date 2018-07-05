@@ -59,8 +59,8 @@ public class GATKVCFHeaderLines {
         addFilterLine(new VCFFilterHeaderLine(READ_POSITION_FILTER_NAME, "median distance of alt variants from end of reads"));
         addFilterLine(new VCFFilterHeaderLine(CONTAMINATION_FILTER_NAME, "contamination"));
         addFilterLine(new VCFFilterHeaderLine(DUPLICATED_EVIDENCE_FILTER_NAME, "evidence for alt allele is overrepresented by apparent duplicates"));
-        addFilterLine(new VCFFilterHeaderLine(F1R2_ARTIFACT_FILTER_NAME, "over-representation of F1R2 reads among alt"));
-        addFilterLine(new VCFFilterHeaderLine(F2R1_ARTIFACT_FILTER_NAME, "over-representation of F2R1 reads among alt"));
+        addFilterLine(new VCFFilterHeaderLine(F1R2_ARTIFACT_FILTER_NAME, "F1R2 read orientation bias artifact"));
+        addFilterLine(new VCFFilterHeaderLine(F2R1_ARTIFACT_FILTER_NAME, "F2R1 read orientation bias artifact"));
 
 
         addFormatLine(new VCFFormatHeaderLine(ALLELE_BALANCE_KEY, 1, VCFHeaderLineType.Float, "Allele balance for each het genotype"));
@@ -89,8 +89,8 @@ public class GATKVCFHeaderLines {
         addFormatLine(new VCFFormatHeaderLine(ALLELE_FRACTION_KEY, VCFHeaderLineCount.A, VCFHeaderLineType.Float, "Allele fractions of alternate alleles in the tumor"));
         addFormatLine(new VCFFormatHeaderLine(F1R2_KEY, VCFHeaderLineCount.R, VCFHeaderLineType.Integer, "Count of reads in F1R2 pair orientation supporting each allele"));
         addFormatLine(new VCFFormatHeaderLine(F2R1_KEY, VCFHeaderLineCount.R, VCFHeaderLineType.Integer, "Count of reads in F2R1 pair orientation supporting each allele"));
-        addFormatLine(new VCFFormatHeaderLine(POSTERIOR_PROBABILITIES_KEY, 3, VCFHeaderLineType.Float, "posterior probabilities of the presence of strand artifact"));
-        addFormatLine(new VCFFormatHeaderLine(MAP_ALLELE_FRACTIONS_KEY, 3, VCFHeaderLineType.Float, "MAP estimates of allele fraction given z"));
+        addFormatLine(new VCFFormatHeaderLine(STRAND_ARTIFACT_POSTERIOR_KEY, 3, VCFHeaderLineType.Float, "posterior probabilities of the presence of strand artifact"));
+        addFormatLine(new VCFFormatHeaderLine(STRAND_ARTIFACT_AF_KEY, 3, VCFHeaderLineType.Float, "MAP estimates of allele fraction given z"));
         addFormatLine(new VCFFormatHeaderLine(ROF_POSTERIOR_KEY, 1, VCFHeaderLineType.Float, "posterior probability of read orientation-based artifacts"));
         addFormatLine(new VCFFormatHeaderLine(ROF_PRIOR_KEY, 1, VCFHeaderLineType.Float, "prior probability of read orientation-based artifacts under the present referene context"));
         addFormatLine(new VCFFormatHeaderLine(ROF_TYPE_KEY, 1, VCFHeaderLineType.String, "type of read orientation artifact (F1R2 or F2R1)"));

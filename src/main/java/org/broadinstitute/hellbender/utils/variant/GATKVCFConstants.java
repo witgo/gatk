@@ -131,10 +131,10 @@ public final class GATKVCFConstants {
 
     // M2-specific FORMAT keys
     public static final String ALLELE_FRACTION_KEY =                "AF";
-    public static final String POSTERIOR_PROBABILITIES_KEY =        "SA_POST_PROB"; // Strand Artifact Filter
-    public static final String MAP_ALLELE_FRACTIONS_KEY =           "SA_MAP_AF"; // Strand Artifact Filter
+    public static final String STRAND_ARTIFACT_POSTERIOR_KEY =      "SA_POST_PROB"; // Strand Artifact Filter
+    public static final String STRAND_ARTIFACT_AF_KEY =             "SA_MAP_AF"; // Strand Artifact Filter
     public static final String ROF_POSTERIOR_KEY =                  "P_RO"; // For read orientation filter
-    public static final String ROF_PRIOR_KEY =                      "PRIOR_P_RO";
+    public static final String ROF_PRIOR_KEY =                      "P_PRIOR_RO";
     public static final String ROF_TYPE_KEY =                       "ROF_TYPE";
 
     //FILTERS

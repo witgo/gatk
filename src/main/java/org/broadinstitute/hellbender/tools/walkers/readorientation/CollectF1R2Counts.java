@@ -43,6 +43,7 @@ public class CollectF1R2Counts extends LocusWalker {
     public static final String REF_SITE_METRICS_LONG_NAME = "ref-hist";
     public static final String MIN_MEDIAN_MQ_LONG_NAME = "median-mq";
     public static final String MIN_BASE_QUALITY_LONG_NAME = "min-bq";
+    public static final String MAX_DEPTH_LONG_NAME = "max-depth";
 
     @Argument(fullName = MIN_MEDIAN_MQ_LONG_NAME, doc = "skip sites with median mapping quality below this value", optional = true)
     private int MINIMUM_MEDIAN_MQ = 30;
@@ -58,6 +59,9 @@ public class CollectF1R2Counts extends LocusWalker {
 
     @Argument(fullName = ALT_DEPTH1_HISTOGRAM_LONG_NAME, doc = "a histogram of alt sites with alt depth = 1")
     private File altMetricsOutput = null;
+
+    @Argument(fullName = MAX_DEPTH_LONG_NAME, doc = "sites with depth higher than this value will be grouped", optional = true)
+    private int maxDepth = F1R2FilterConstants.DEFAULT_MAX_DEPTH;
 
     // For each reference context, count ref sites in a histogram keyed by depth
     private Map<String, Histogram<Integer>> refSiteHistograms = new HashMap<>(ALL_KMERS.size());
@@ -85,11 +89,11 @@ public class CollectF1R2Counts extends LocusWalker {
     public void onTraversalStart() {
         // Initialize for each reference the histogram of the counts of reference sites by depth
         ALL_KMERS.forEach(context -> {
-            Histogram<Integer> emptyRefHistogram = F1R2FilterUtils.createRefHistogram(context);
+            Histogram<Integer> emptyRefHistogram = F1R2FilterUtils.createRefHistogram(context, maxDepth);
             refSiteHistograms.put(context, emptyRefHistogram);
         });
 
-        depthOneAltHistograms = new DepthOneHistograms();
+        depthOneAltHistograms = new DepthOneHistograms(maxDepth);
         // Intentionally not use try-with-resources so that the writer stays open outside of the try block
         try {
             altTableWriter = new AltSiteRecordTableWriter(altDataTable);
@@ -122,7 +126,7 @@ public class CollectF1R2Counts extends LocusWalker {
         final int[] baseCounts = pileup.getBaseCounts();
         final int depth = (int) MathUtils.sum(baseCounts);
 
-        if (!isPileupGood(pileup, referenceContext)) {
+        if (!isPileupGood(pileup)) {
             return;
         }
 
@@ -135,7 +139,7 @@ public class CollectF1R2Counts extends LocusWalker {
 
         // If the site is ref, we simply update the coverage histogram
         if (referenceSite) {
-            refSiteHistograms.get(refContext).increment(Math.min(depth, F1R2FilterConstants.maxDepth));
+            refSiteHistograms.get(refContext).increment(Math.min(depth, maxDepth));
             return;
         }
 
@@ -187,12 +191,9 @@ public class CollectF1R2Counts extends LocusWalker {
     /**
      * Use a series of heuristics to detect a bad pileup.
      */
-    private boolean isPileupGood(final ReadPileup pileup, final ReferenceContext referenceContext){
+    private boolean isPileupGood(final ReadPileup pileup){
         final int[] baseCounts = pileup.getBaseCounts();
         final int depth = (int) MathUtils.sum(baseCounts);
-
-        // If we observe any bases that are neither ref nor alt, the site is no good so filter
-        final long numAlleles = Arrays.stream(baseCounts).filter(i -> i > 0).count();
 
         List<Integer> mappingQualities = Ints.asList(pileup.getMappingQuals());
 
@@ -204,7 +205,7 @@ public class CollectF1R2Counts extends LocusWalker {
         // have deleted bases at this particular locus
         isIndel = isIndel || depth == 0 && pileup.size() > 0;
 
-        return depth > 0 && ! isIndel && MathUtils.median(mappingQualities) >= MINIMUM_MEDIAN_MQ && numAlleles <= 2;
+        return depth > 0 && ! isIndel && MathUtils.median(mappingQualities) >= MINIMUM_MEDIAN_MQ;
 
     }
 }

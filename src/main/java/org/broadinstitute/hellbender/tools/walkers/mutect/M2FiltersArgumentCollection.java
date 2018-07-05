@@ -26,7 +26,8 @@ public class M2FiltersArgumentCollection extends AssemblyBasedCallerArgumentColl
     public static final String MAX_CONTAMINATION_PROBABILITY_LONG_NAME = "max-contamination-probability";
     public static final String UNIQUE_ALT_READ_COUNT_LONG_NAME = "unique-alt-read-count";
     public static final String TUMOR_SEGMENTATION_LONG_NAME = "tumor-segmentation";
-    public static final String FALSE_POSITIVE_RATE_LONG_NAME = "fpr";
+    public static final String ORIENTATION_BIAS_FDR_LONG_NAME = "orientation-bias-fpr"; // FDR = false discovery rate
+
     public static final String FILTERING_STATS_LONG_NAME = "stats";
 
     /**
@@ -108,11 +109,11 @@ public class M2FiltersArgumentCollection extends AssemblyBasedCallerArgumentColl
     public int uniqueAltReadCount = 0;
 
     /**
-     * We set the filtering threshold for the read orientation filter such that the ratio
-     * expected number of false positives due to read orientation artifact) / total number of v
-     * to the total number of variants does not exceed this value
+     * We set the filtering threshold for the read orientation filter such that the false discovery rate (FDR), which equals
+     * the ratio of expected number of false positives due to read orientation artifact to the total number of variants
+     * does not exceed this value.
      */
-    @Argument(fullName = FALSE_POSITIVE_RATE_LONG_NAME, optional = true, doc = "Set the read orientation filter threshold such that the expected FPR doesn't exceed this value")
+    @Argument(fullName = ORIENTATION_BIAS_FDR_LONG_NAME, optional = true, doc = "Mutect will calculate the threshold for the read orientation filter such that the FDR doesn't exceed this value")
     public double maxFalsePositiveRate = 0.05;
 
     @Argument(fullName = FILTERING_STATS_LONG_NAME, optional = true, doc = "Write the filtering statistics to this file")

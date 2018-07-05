@@ -101,9 +101,9 @@ public class StrandArtifactUnitTest extends GATKBaseTest {
 
         final Genotype genotype = genotypeBuilder.make();
         final double[] posteriorProbabilities =
-                GATKProtectedVariantContextUtils.getAttributeAsDoubleArray(genotype, GATKVCFConstants.POSTERIOR_PROBABILITIES_KEY, () -> null, -1);
+                GATKProtectedVariantContextUtils.getAttributeAsDoubleArray(genotype, GATKVCFConstants.STRAND_ARTIFACT_POSTERIOR_KEY, () -> null, -1);
         final double[] mapAlleleFractionEstimates =
-                GATKProtectedVariantContextUtils.getAttributeAsDoubleArray(genotype, GATKVCFConstants.MAP_ALLELE_FRACTIONS_KEY, () -> null, -1);
+                GATKProtectedVariantContextUtils.getAttributeAsDoubleArray(genotype, GATKVCFConstants.STRAND_ARTIFACT_AF_KEY, () -> null, -1);
 
         final double epsilon = 1e-3;
         // Check that we correctly detect the artifact in reverse strands
@@ -186,9 +186,9 @@ public class StrandArtifactUnitTest extends GATKBaseTest {
 
         final Genotype genotype = genotypeBuilder.make();
         final double[] posteriorProbabilities =
-                GATKProtectedVariantContextUtils.getAttributeAsDoubleArray(genotype, GATKVCFConstants.POSTERIOR_PROBABILITIES_KEY, () -> null, -1);
+                GATKProtectedVariantContextUtils.getAttributeAsDoubleArray(genotype, GATKVCFConstants.STRAND_ARTIFACT_POSTERIOR_KEY, () -> null, -1);
         final double[] mapAlleleFractionEstimates =
-                GATKProtectedVariantContextUtils.getAttributeAsDoubleArray(genotype, GATKVCFConstants.MAP_ALLELE_FRACTIONS_KEY, () -> null, -1);
+                GATKProtectedVariantContextUtils.getAttributeAsDoubleArray(genotype, GATKVCFConstants.STRAND_ARTIFACT_AF_KEY, () -> null, -1);
 
         final double epsilon = 0.1;
         // Check that, having taken strand artifact into consideration, we estimate that the true allele fraction is 0.2

@@ -97,9 +97,9 @@ public class Mutect2FilterSummary {
         }
     }
 
-    public static void writeM2FilterStats(final Mutect2FilterSummary stats, final File outputTable) {
+    public static void writeM2FilterSummary(final Mutect2FilterSummary summary, final File outputTable) {
         try (Mutect2FilterStatsWriter writer = new Mutect2FilterStatsWriter(outputTable)) {
-            writer.writeAllRecords(stats.getAllFilterStats());
+            writer.writeAllRecords(summary.getAllFilterStats());
         } catch (IOException e) {
             throw new UserException(String.format("Encountered an IO exception while writing to %s.", outputTable), e);
         }

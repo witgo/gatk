@@ -58,7 +58,6 @@ public class ReadOrientationArtifactUnitTest extends GATKBaseTest {
     public void test(final int depth, final double alleleFraction, final double altF1R2Fraction,
                      final double expectedArtifactProb, final double epsilon,
                      final Optional<ReadOrientation> expectedArtifactType) throws IOException {
-        // Why is it that the annotations get larger window than the walker (CollectData?)
         final ReferenceContext reference = new ReferenceContext(new ReferenceFileSource(IOUtils.getPath(hg19_chr1_1M_Reference)),
                 new SimpleInterval("1", variantPosition -5, variantPosition +5));
         final String refContext = reference.getKmerAround(variantPosition, F1R2FilterConstants.REF_CONTEXT_PADDING);

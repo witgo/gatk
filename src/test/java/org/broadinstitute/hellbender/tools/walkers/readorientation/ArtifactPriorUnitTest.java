@@ -9,7 +9,6 @@ import org.testng.internal.junit.ArrayAsserts;
 import java.io.File;
 import java.io.IOException;
 import java.util.Arrays;
-import java.util.List;
 import java.util.Optional;
 
 import static org.broadinstitute.hellbender.tools.walkers.readorientation.F1R2FilterConstants.NUM_STATES;
@@ -36,26 +35,26 @@ public class ArtifactPriorUnitTest {
         final String referenceContext2 = "GTA";
         final String referenceContext3 = "CCC";
 
-        final ArtifactPriors artifactPriorsBefore = new ArtifactPriors();
-        artifactPriorsBefore.set(new ArtifactPrior(referenceContext1, pi, numExamples1, numAltExamples1));
-        artifactPriorsBefore.set(new ArtifactPrior(referenceContext2, pi, numExamples2, numAltExamples2));
-        artifactPriorsBefore.set(new ArtifactPrior(referenceContext3, pi, numExamples3, numAltExamples3));
+        final ArtifactPriorCollection artifactPriorCollectionBefore = new ArtifactPriorCollection();
+        artifactPriorCollectionBefore.set(new ArtifactPrior(referenceContext1, pi, numExamples1, numAltExamples1));
+        artifactPriorCollectionBefore.set(new ArtifactPrior(referenceContext2, pi, numExamples2, numAltExamples2));
+        artifactPriorCollectionBefore.set(new ArtifactPrior(referenceContext3, pi, numExamples3, numAltExamples3));
 
         final File table = File.createTempFile("prior", ".tsv");
-        artifactPriorsBefore.writeArtifactPriors(table);
-        final ArtifactPriors artifactPriorsAfter = ArtifactPriors.readArtifactPriors(table);
+        artifactPriorCollectionBefore.writeArtifactPriors(table);
+        final ArtifactPriorCollection artifactPriorCollectionAfter = ArtifactPriorCollection.readArtifactPriors(table);
 
-        final ArtifactPrior ap1 = artifactPriorsAfter.get(referenceContext1).get();
+        final ArtifactPrior ap1 = artifactPriorCollectionAfter.get(referenceContext1).get();
         ArrayAsserts.assertArrayEquals(ap1.getPi(), pi, EPSILON);
         Assert.assertEquals(ap1.getNumExamples(), numExamples1);
         Assert.assertEquals(ap1.getNumAltExamples(), numAltExamples1);
 
-        ArtifactPrior ap2 = artifactPriorsAfter.get(referenceContext2).get();
+        ArtifactPrior ap2 = artifactPriorCollectionAfter.get(referenceContext2).get();
         ArrayAsserts.assertArrayEquals(ap2.getPi(), pi, EPSILON);
         Assert.assertEquals(ap2.getNumExamples(), numExamples2);
         Assert.assertEquals(ap2.getNumAltExamples(), numAltExamples2);
 
-        ArtifactPrior ap3 = artifactPriorsAfter.get(referenceContext3).get();
+        ArtifactPrior ap3 = artifactPriorCollectionAfter.get(referenceContext3).get();
         ArrayAsserts.assertArrayEquals(ap3.getPi(), pi, EPSILON);
         Assert.assertEquals(ap3.getNumExamples(), numExamples3);
         Assert.assertEquals(ap3.getNumAltExamples(), numAltExamples3);
@@ -76,24 +75,24 @@ public class ArtifactPriorUnitTest {
         ArtifactState.setStatePrior(pi2, 0.8, HOM_REF);
         ArtifactState.setStatePrior(pi2, 0.15, SOMATIC_HET);
 
-        final ArtifactPriors artifactPriorsBefore = new ArtifactPriors();
-        artifactPriorsBefore.set(new ArtifactPrior(referenceContext1, pi1, numExamples, numAltExamples));
-        artifactPriorsBefore.set(new ArtifactPrior(referenceContext2, pi2, numExamples, numAltExamples));
+        final ArtifactPriorCollection artifactPriorCollectionBefore = new ArtifactPriorCollection();
+        artifactPriorCollectionBefore.set(new ArtifactPrior(referenceContext1, pi1, numExamples, numAltExamples));
+        artifactPriorCollectionBefore.set(new ArtifactPrior(referenceContext2, pi2, numExamples, numAltExamples));
 
         final File table = File.createTempFile("prior", ".tsv");
-        artifactPriorsBefore.writeArtifactPriors(table);
+        artifactPriorCollectionBefore.writeArtifactPriors(table);
 
-        final ArtifactPriors artifactPriorsAfter = ArtifactPriors.readArtifactPriors(table);
-        final ArtifactPrior ap1 = artifactPriorsAfter.get(referenceContext1).get();
-        final ArtifactPrior ap1rc = artifactPriorsAfter.get(SequenceUtil.reverseComplement(referenceContext1)).get();
+        final ArtifactPriorCollection artifactPriorCollectionAfter = ArtifactPriorCollection.readArtifactPriors(table);
+        final ArtifactPrior ap1 = artifactPriorCollectionAfter.get(referenceContext1).get();
+        final ArtifactPrior ap1rc = artifactPriorCollectionAfter.get(SequenceUtil.reverseComplement(referenceContext1)).get();
 
         Assert.assertEquals(ap1.getReferenceContext(), SequenceUtil.reverseComplement(ap1rc.getReferenceContext()));
         for (ArtifactState state : ArtifactState.values()){
             Assert.assertEquals(ap1.getPi(state), ap1rc.getPi(state.getRevCompState()));
         }
 
-        final ArtifactPrior ap2 = artifactPriorsAfter.get(referenceContext2).get();
-        final ArtifactPrior ap2rc = artifactPriorsAfter.get(SequenceUtil.reverseComplement(referenceContext2)).get();
+        final ArtifactPrior ap2 = artifactPriorCollectionAfter.get(referenceContext2).get();
+        final ArtifactPrior ap2rc = artifactPriorCollectionAfter.get(SequenceUtil.reverseComplement(referenceContext2)).get();
 
         Assert.assertEquals(ap2.getReferenceContext(), SequenceUtil.reverseComplement(ap2rc.getReferenceContext()));
         for (ArtifactState state : ArtifactState.values()){
@@ -136,7 +135,7 @@ public class ArtifactPriorUnitTest {
         final String context = "ATG";
         final String revComp = "CAT";
 
-        final ArtifactPriors priors = new ArtifactPriors();
+        final ArtifactPriorCollection priors = new ArtifactPriorCollection();
         priors.set(new ArtifactPrior(context, pi, 100, 10));
         Optional<ArtifactPrior> priorRevComp = priors.get(revComp);
 

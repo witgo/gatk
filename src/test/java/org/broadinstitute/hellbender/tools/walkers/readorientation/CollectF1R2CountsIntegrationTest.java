@@ -28,7 +28,7 @@ import java.util.Optional;
 /**
  * Created by tsato on 3/14/18.
  */
-public class CollectF1R2CountsUnitTest extends CommandLineProgramTest {
+public class CollectF1R2CountsIntegrationTest extends CommandLineProgramTest {
     @Test
     public void testOnSyntheticBam() throws IOException {
         final File refMetrics = createTempFile("ref", ".metrics");
