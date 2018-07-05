@@ -517,7 +517,7 @@ task shadowTestClassJar(type: ShadowJar){
 task shadowTestJar(type: ShadowJar){
     group = "Shadow"
     from {
-        (project.configurations.testRuntime).collect {// - project.configurations.runtime ).collect {
+        (project.configurations.testRuntime - project.configurations.runtime ).collect {
             it.isDirectory() ? it : it.getName().endsWith(".jar") ? zipTree(it) : it
         }
     }
